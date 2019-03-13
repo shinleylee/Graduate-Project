@@ -3,9 +3,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 import tensorflow as tf
 import keras as K
-from keras.layers import Input, Masking, Embedding, Dense, LSTM
+from keras.layers import Input, Masking, Embedding, Dense, LSTM, Concatenate
 from keras.utils import to_categorical
-from keras.models import Sequential
+from keras.models import Sequential, Model
 from keras import losses
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.metrics import mean_squared_error
@@ -129,12 +129,16 @@ x_train = np.array(x_train)
 x_train = x_train.reshape((x_train.shape[0], x_train.shape[1], 1))
 x_train = x_train/200  # normalization
 
+x_aux_train = np.array(x_aux_train)
+
 y_train = np.array(y_train)
 y_train = y_train/200  # normalization
 
 x_test = np.array(x_test)
 x_test = x_test.reshape((x_test.shape[0], x_test.shape[1], 1))
 x_test = x_test/200  # normalization
+
+x_aux_test = np.array(x_aux_test)
 
 y_test_new = []
 for item in y_test:
@@ -155,24 +159,34 @@ y_test = y_test_new
 ## Prepare the data-------------------------------------------------------------------------------------------------
 
 def create_model():
-    model = Sequential()
     #输入数据的shape为(n_samples, timestamps, features)
+    main_input = Input(shape=(MAX_MAXWIND_SEQ_LEN, 1), dtype='float32', name='main-input')
+    lstm = LSTM(1)(main_input)
+
+    aux_input = Input(shape=(6,), name='aux_input')
+    aux_info = Dense(4, activation='sigmoid')(aux_input)
+
+    x = Concatenate()([lstm, aux_info])
+    # x = Dense(5, activation='relu')(x)
+    main_output = Dense(1, activation='linear', name='main_output')(x)
+
     #下面还有个lstm，故return_sequences设置为True
     # model.add(Embedding(input_dim=200, output_dim=EMBEDDING_DIM, input_length=MAX_MAXWIND_SEQ_LEN))
-    model.add(Masking(mask_value=0, input_shape=(MAX_MAXWIND_SEQ_LEN, 1)))
-    model.add(LSTM(units=1, return_sequences=False, activation='linear'))
+    # model.add(Masking(mask_value=0, input_shape=(MAX_MAXWIND_SEQ_LEN, 1)))
+    # model.add(LSTM(units=1, return_sequences=False, activation='linear'))
     # model.add(LSTM(units=1, activation='linear'))
     # model.add(Dense(units=1, activation='linear'))
 
+    model = Model(inputs=[main_input, aux_input], outputs=main_output)
     model.compile(loss='mean_squared_error', optimizer='adam')
     return model
 
 
 model = create_model()
-model.fit(x_train, y_train, batch_size=512, epochs=100, validation_split=0.1, verbose=2)
+model.fit([x_train, x_aux_train], y_train, batch_size=512, epochs=100, validation_split=0.1, verbose=2)
 
 # make predictions
-testPredict = model.predict(x_test)
+testPredict = model.predict([x_test, x_aux_test])
 testPredict = np.reshape(testPredict,(testPredict.shape[0]))
 print(y_test)
 print(testPredict)
