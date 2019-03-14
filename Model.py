@@ -3,7 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import tensorflow as tf
 import keras as K
-from keras.layers import Input, Masking, Embedding, Dense, LSTM, Concatenate
+from keras.layers import Input, Masking, Embedding, Flatten, Dense, LSTM, Concatenate
 from keras.utils import to_categorical
 from keras.models import Sequential, Model
 from keras import losses
@@ -69,81 +69,99 @@ for item in train_data + test_data:
         MAX_MAXWIND_SEQ_LEN = maxLen - 1
 
 
-# process the data into tensors (embedding)
+# process the data into tensors
 def data2tensor(dataset, MAX_MAXWIND_SEQ_LEN):
-    x_aux = []
     x = []
+    x_aux_month = []
+    x_aux_time = []
+    x_aux_lalo = []
     y = []
+
     for item in dataset:
-        # aux info
-        x_aux_tensor = []
-        aux_time = item[2][-1]
-        if aux_time == 1800:
-            x_aux_tensor = [1, 0, 0, 0]
-        elif aux_time == 0:
-            x_aux_tensor = [0, 1, 0, 0]
-        elif aux_time == 600:
-            x_aux_tensor = [0, 0, 1, 0]
-        elif aux_time == 1200:
-            x_aux_tensor = [0, 0, 0, 1]
-        else:
-            aux_time = item[2][-2]
-            if aux_time == 1800:
-                x_aux_tensor = [1, 0, 0, 0]
-            elif aux_time == 0:
-                x_aux_tensor = [0, 1, 0, 0]
-            elif aux_time == 600:
-                x_aux_tensor = [0, 0, 1, 0]
-            elif aux_time == 1200:
-                x_aux_tensor = [0, 0, 0, 1]
-            else:
-                print('Time Error: time1 =', item[2][-1], 'time2=', item[2][-2])
-                x_aux_tensor = [0.25, 0.25, 0.25, 0.25]
-        aux_latitude = item[5][-1]
-        x_aux_tensor.append(aux_latitude)
-        aux_longitude = item[6][-1]
-        x_aux_tensor.append(aux_longitude)
-        # maxWind
+        # get the length of this item
         maxWind_seq = item[7]
-        maxWind_seq_len = len(maxWind_seq)
-        for i in range(1, maxWind_seq_len):
+        item_seq_len = len(maxWind_seq)
+
+        for i in range(1, item_seq_len):
+            # month
+            aux_date = item[1][i]
+            aux_month = (aux_date//100)%100
+            x_aux_month_tensor = [aux_month-1]
+            x_aux_month.append(x_aux_month_tensor)
+            # time
+            aux_time = item[2][i]
+            if aux_time == 0:
+                x_aux_time_tensor = [1]
+            elif aux_time == 600:
+                x_aux_time_tensor = [2]
+            elif aux_time == 1200:
+                x_aux_time_tensor = [3]
+            elif aux_time == 1800:
+                x_aux_time_tensor = [4]
+            else:
+                x_aux_time_tensor = [0]
+            x_aux_time.append(x_aux_time_tensor)
+            # latitude and longitude
+            x_aux_lalo_tensor = []
+            aux_latitude = item[5][i-1]
+            x_aux_lalo_tensor.append(aux_latitude)
+            aux_longitude = item[6][i-1]
+            x_aux_lalo_tensor.append(aux_longitude)
+            x_aux_lalo.append(x_aux_lalo_tensor)
+            # maxWind
             x.append(maxWind_seq[:i])
-            x_aux.append(x_aux_tensor)
             y.append(maxWind_seq[i])
+
+    # fill 0s in x to reach length of 120 (which is MAX_MAXWIND_SEQ_LEN) for lstm
     for item in x:
         while len(item) < MAX_MAXWIND_SEQ_LEN:
             item.append(0)
-    return x, x_aux, y
+
+    return x, x_aux_month, x_aux_time, x_aux_lalo, y
 
 
-x_train, x_aux_train, y_train = data2tensor(train_data, MAX_MAXWIND_SEQ_LEN)
-x_test, x_aux_test, y_test = data2tensor(test_data, MAX_MAXWIND_SEQ_LEN)
-assert len(x_train)==len(x_aux_train) and len(x_train)==len(y_train)
-assert len(x_test)==len(x_aux_test) and len(x_test)==len(y_test)
+x_train, x_aux_month_train, x_aux_time_train, x_aux_lalo_train, y_train = data2tensor(train_data, MAX_MAXWIND_SEQ_LEN)
+x_test, x_aux_month_test, x_aux_time_test, x_aux_lalo_test, y_test = data2tensor(test_data, MAX_MAXWIND_SEQ_LEN)
+assert len(x_train)==len(x_aux_month_train) and len(x_train)==len(x_aux_time_train) \
+       and len(x_train)==len(x_aux_lalo_train) and len(x_train)==len(y_train)
+assert len(x_test)==len(x_aux_month_test) and len(x_test)==len(x_aux_time_test) \
+       and len(x_test) == len(x_aux_lalo_test) and len(x_test)==len(y_test)
 
-print('The train samples are ' + str(len(x_train)) + '.')
+print('The train samples are ' + str(len(y_train)) + '.')
 print('The test samples are ' + str(len(y_test)) + '.')
 print('----------------------------------------------------------------------------------------------------')
 
 x_train = np.array(x_train)
 x_train = x_train.reshape((x_train.shape[0], x_train.shape[1], 1))
-x_train = x_train/200  # normalization
+# x_train = x_train/200  # normalization
 
-x_aux_train = np.array(x_aux_train)
+x_aux_month_train = np.array(x_aux_month_train)
+x_aux_time_train = np.array(x_aux_time_train)
+x_aux_lalo_train = np.array(x_aux_lalo_train)
 
 y_train = np.array(y_train)
-y_train = y_train/200  # normalization
+# y_train = y_train/200  # normalization
 
 x_test = np.array(x_test)
 x_test = x_test.reshape((x_test.shape[0], x_test.shape[1], 1))
-x_test = x_test/200  # normalization
+# x_test = x_test/200  # normalization
 
-x_aux_test = np.array(x_aux_test)
+x_aux_month_test = np.array(x_aux_month_test)
+x_aux_time_test = np.array(x_aux_time_test)
+x_aux_lalo_test = np.array(x_aux_lalo_test)
 
-y_test_new = []
-for item in y_test:
-    y_test_new.append(float(float(item)/200))  # normalization
-y_test = y_test_new
+# y_test_new = []
+# for item in y_test:
+#     y_test_new.append(float(float(item)/200))  # normalization
+# y_test = y_test_new
+y_test = np.array(y_test)
+
+# min_max_scaler = MinMaxScaler(feature_range=(0,1))  # normalization
+# x_aux_feat_all = np.vstack((x_aux_feat_train, x_aux_feat_test))
+# x_aux_feat_all = min_max_scaler.fit_transform(x_aux_feat_all)
+# split_line = x_aux_feat_train.shape[0]
+# x_aux_feat_train = x_aux_feat_all[:split_line][:]
+# x_aux_feat_test = x_aux_feat_all[split_line:][:]
 
 # # draw curves
 # if DRAW_CURVES:
@@ -160,15 +178,26 @@ y_test = y_test_new
 
 def create_model():
     #输入数据的shape为(n_samples, timestamps, features)
-    main_input = Input(shape=(MAX_MAXWIND_SEQ_LEN, 1), dtype='float32', name='main-input')
+    main_input = Input(shape=(MAX_MAXWIND_SEQ_LEN, 1), name='main_input')
     lstm = LSTM(1)(main_input)
 
-    aux_input = Input(shape=(6,), name='aux_input')
-    aux_info = Dense(4, activation='sigmoid')(aux_input)
+    aux_month_input = Input(shape=(1,), name='aux_month_input')
+    # aux_month_info = Embedding(input_dim=12, output_dim=4, input_length=1)(aux_month_input)
+    # aux_month_info = Flatten()(aux_month_info)
+    aux_month_info = aux_month_input
 
-    x = Concatenate()([lstm, aux_info])
-    # x = Dense(5, activation='relu')(x)
-    main_output = Dense(1, activation='linear', name='main_output')(x)
+    aux_time_input = Input(shape=(1,), name='aux_time_input')
+    # aux_time_info = Embedding(input_dim=5, output_dim=2, input_length=1)(aux_time_input)
+    # aux_time_info = Flatten()(aux_time_info)
+    aux_time_info = aux_time_input
+
+    aux_lalo_input = Input(shape=(2,), name='aux_lalo_input')
+    aux_lalo_info = aux_lalo_input
+
+    # x = Concatenate()([lstm, aux_month_info, aux_time_info, aux_lalo_info])
+    # x = Dense(7, activation='relu')(x)
+    # main_output = Dense(1, activation='linear', name='main_output')(x)
+    main_output = lstm
 
     #下面还有个lstm，故return_sequences设置为True
     # model.add(Embedding(input_dim=200, output_dim=EMBEDDING_DIM, input_length=MAX_MAXWIND_SEQ_LEN))
@@ -177,16 +206,17 @@ def create_model():
     # model.add(LSTM(units=1, activation='linear'))
     # model.add(Dense(units=1, activation='linear'))
 
-    model = Model(inputs=[main_input, aux_input], outputs=main_output)
+    model = Model(inputs=[main_input, aux_month_input, aux_time_input, aux_lalo_input], outputs=main_output)
     model.compile(loss='mean_squared_error', optimizer='adam')
     return model
 
 
 model = create_model()
-model.fit([x_train, x_aux_train], y_train, batch_size=512, epochs=100, validation_split=0.1, verbose=2)
+model.fit([x_train, x_aux_month_train, x_aux_time_train, x_aux_lalo_train], y_train,
+          batch_size=512, epochs=100, validation_split=0.1, verbose=2)
 
 # make predictions
-testPredict = model.predict([x_test, x_aux_test])
+testPredict = model.predict([x_test, x_aux_month_test, x_aux_time_test, x_aux_lalo_test])
 testPredict = np.reshape(testPredict,(testPredict.shape[0]))
 print(y_test)
 print(testPredict)
