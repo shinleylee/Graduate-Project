@@ -133,28 +133,34 @@ print('-------------------------------------------------------------------------
 
 x_train = np.array(x_train)
 x_train = x_train.reshape((x_train.shape[0], x_train.shape[1], 1))
-# x_train = x_train/200  # normalization
 
 x_aux_month_train = np.array(x_aux_month_train)
 x_aux_time_train = np.array(x_aux_time_train)
 x_aux_lalo_train = np.array(x_aux_lalo_train)
 
 y_train = np.array(y_train)
-# y_train = y_train/200  # normalization
 
 x_test = np.array(x_test)
 x_test = x_test.reshape((x_test.shape[0], x_test.shape[1], 1))
-# x_test = x_test/200  # normalization
 
 x_aux_month_test = np.array(x_aux_month_test)
 x_aux_time_test = np.array(x_aux_time_test)
 x_aux_lalo_test = np.array(x_aux_lalo_test)
 
+y_test = np.array(y_test)
 # y_test_new = []
 # for item in y_test:
 #     y_test_new.append(float(float(item)/200))  # normalization
 # y_test = y_test_new
-y_test = np.array(y_test)
+
+# normalization
+max_maxWind = np.max(x_train)
+if np.max(x_test) > max_maxWind:
+    max_maxWind = np.max(x_test)
+x_train = x_train/max_maxWind
+y_train = y_train/max_maxWind
+x_test = x_test/max_maxWind
+y_test = y_test/max_maxWind
 
 # min_max_scaler = MinMaxScaler(feature_range=(0,1))  # normalization
 # x_aux_feat_all = np.vstack((x_aux_feat_train, x_aux_feat_test))
@@ -179,7 +185,8 @@ y_test = np.array(y_test)
 def create_model():
     #输入数据的shape为(n_samples, timestamps, features)
     main_input = Input(shape=(MAX_MAXWIND_SEQ_LEN, 1), name='main_input')
-    lstm = LSTM(1)(main_input)
+    masking = Masking(mask_value=0)(main_input)
+    lstm = LSTM(1)(masking)
 
     aux_month_input = Input(shape=(1,), name='aux_month_input')
     # aux_month_info = Embedding(input_dim=12, output_dim=4, input_length=1)(aux_month_input)
@@ -196,7 +203,7 @@ def create_model():
 
     # x = Concatenate()([lstm, aux_month_info, aux_time_info, aux_lalo_info])
     # x = Dense(7, activation='relu')(x)
-    # main_output = Dense(1, activation='linear', name='main_output')(x)
+    # main_output = Dense(1, activation='linear', name='main_output')(lstm)
     main_output = lstm
 
     #下面还有个lstm，故return_sequences设置为True
@@ -222,6 +229,6 @@ print(y_test)
 print(testPredict)
 
 testScore = (mean_squared_error(y_test, testPredict)) ** 0.5
-testScore = testScore * 200
+testScore = testScore * max_maxWind
 print('Test Score:')
 print(testScore)
