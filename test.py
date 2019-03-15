@@ -1,6 +1,7 @@
-print(str(   ("%.100f" % ((1/81)*10))))
+import numpy as np
 
-for i in range(1, 81):
-    if '2018' in str(   ("%.100f" % (i/81))):
-        print(i)
-        print(str(   ("%.100f" % (i/81))))
+a = np.array([[1,2,3],[4,5,6]])
+b = np.array([['q','w','e'],['a','s','d']])
+
+c = np.concatenate([a,b],axis=0)
+print(c)
