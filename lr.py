@@ -88,9 +88,31 @@ def data2tensor(dataset, MAX_MAXWIND_SEQ_LEN):
             aux_date = item[1][i]
             aux_month = (aux_date//100)%100
             if aux_month==1:
-                x_aux_month_tensor = [1,]
-
-            x_aux_month_tensor = [aux_month-1]
+                x_aux_month_tensor = [1,0,0,0,0,0,0,0,0,0,0,0]
+            elif aux_month==2:
+                x_aux_month_tensor = [0,1,0,0,0,0,0,0,0,0,0,0]
+            elif aux_month==3:
+                x_aux_month_tensor = [0,0,1,0,0,0,0,0,0,0,0,0]
+            elif aux_month==4:
+                x_aux_month_tensor = [0,0,0,1,0,0,0,0,0,0,0,0]
+            elif aux_month==5:
+                x_aux_month_tensor = [0,0,0,0,1,0,0,0,0,0,0,0]
+            elif aux_month==6:
+                x_aux_month_tensor = [0,0,0,0,0,1,0,0,0,0,0,0]
+            elif aux_month==7:
+                x_aux_month_tensor = [0,0,0,0,0,0,1,0,0,0,0,0]
+            elif aux_month==8:
+                x_aux_month_tensor = [0,0,0,0,0,0,0,1,0,0,0,0]
+            elif aux_month==9:
+                x_aux_month_tensor = [0,0,0,0,0,0,0,0,1,0,0,0]
+            elif aux_month==10:
+                x_aux_month_tensor = [0,0,0,0,0,0,0,0,0,1,0,0]
+            elif aux_month==11:
+                x_aux_month_tensor = [0,0,0,0,0,0,0,0,0,0,1,0]
+            elif aux_month==12:
+                x_aux_month_tensor = [0,0,0,0,0,0,0,0,0,0,0,1]
+            else:
+                x_aux_month_tensor = [0.0834,0.0834,0.0834,0.0834,0.0834,0.0834,0.0834,0.0834,0.0834,0.0834,0.0834,0.0834]
             x_aux_month.append(x_aux_month_tensor)
             # time
             aux_time = item[2][i]
@@ -157,10 +179,10 @@ y_test = np.array(y_test)
 max_maxWind = np.max(x_train)
 if np.max(x_test) > max_maxWind:
     max_maxWind = np.max(x_test)
-x_train = x_train/max_maxWind
-y_train = y_train/max_maxWind
-x_test = x_test/max_maxWind
-y_test = y_test/max_maxWind
+# x_train = x_train/max_maxWind
+# y_train = y_train/max_maxWind
+# x_test = x_test/max_maxWind
+# y_test = y_test/max_maxWind
 
 # min_max_scaler = MinMaxScaler(feature_range=(0,1))  # normalization
 # x_aux_feat_all = np.vstack((x_aux_feat_train, x_aux_feat_test))
@@ -183,6 +205,13 @@ y_test = y_test/max_maxWind
 x_train = np.concatenate([x_train, x_aux_month_train, x_aux_time_train, x_aux_lalo_train], axis=1)
 x_test = np.concatenate([x_test, x_aux_month_test, x_aux_time_test, x_aux_lalo_test], axis=1)
 
+min_max_scaler = MinMaxScaler(feature_range=(0,1))  # normalization
+x = np.vstack((x_train, x_test))
+x = min_max_scaler.fit_transform(x)
+# split_line = x_aux_feat_train.shape[0]
+# x_aux_feat_train = x_aux_feat_all[:split_line][:]
+# x_aux_feat_test = x_aux_feat_all[split_line:][:]
+
 ## Prepare the data-------------------------------------------------------------------------------------------------
 
 lr = linear_model.LinearRegression()
@@ -195,6 +224,6 @@ print(y_test)
 print(testPredict)
 
 testScore = (mean_squared_error(y_test, testPredict)) ** 0.5
-testScore = testScore * max_maxWind
+# testScore = testScore * max_maxWind
 print('Test Score:')
 print(testScore)
