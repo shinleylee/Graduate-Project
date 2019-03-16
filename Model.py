@@ -189,22 +189,23 @@ def create_model():
     lstm = LSTM(1)(masking)
 
     aux_month_input = Input(shape=(1,), name='aux_month_input')
-    # aux_month_info = Embedding(input_dim=12, output_dim=4, input_length=1)(aux_month_input)
-    # aux_month_info = Flatten()(aux_month_info)
+    aux_month_info = Embedding(input_dim=13, output_dim=2, input_length=1)(aux_month_input)
+    aux_month_info = Flatten()(aux_month_info)
     aux_month_info = aux_month_input
 
     aux_time_input = Input(shape=(1,), name='aux_time_input')
-    # aux_time_info = Embedding(input_dim=5, output_dim=2, input_length=1)(aux_time_input)
-    # aux_time_info = Flatten()(aux_time_info)
+    aux_time_info = Embedding(input_dim=5, output_dim=2, input_length=1)(aux_time_input)
+    aux_time_info = Flatten()(aux_time_info)
     aux_time_info = aux_time_input
 
     aux_lalo_input = Input(shape=(2,), name='aux_lalo_input')
     aux_lalo_info = aux_lalo_input
 
-    # x = Concatenate()([lstm, aux_month_info, aux_time_info, aux_lalo_info])
-    # x = Dense(7, activation='relu')(x)
-    # main_output = Dense(1, activation='linear', name='main_output')(lstm)
-    main_output = lstm
+    x = Concatenate()([aux_month_info, aux_time_info, aux_lalo_info])
+    x = Dense(6, activation='relu')(x)
+    x = Concatenate()([lstm, x])
+    main_output = Dense(7, activation='relu', name='main_output')(x)
+    main_output = Dense(1, activation='sigmoid', name='main_output')(x)
 
     #下面还有个lstm，故return_sequences设置为True
     # model.add(Embedding(input_dim=200, output_dim=EMBEDDING_DIM, input_length=MAX_MAXWIND_SEQ_LEN))
