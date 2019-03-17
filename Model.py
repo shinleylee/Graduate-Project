@@ -3,7 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import tensorflow as tf
 import keras as K
-from keras.layers import Input, Masking, Embedding, Flatten, Dense, LSTM, Concatenate
+from keras.layers import Input, Masking, Embedding, Flatten, Dense, LSTM, Concatenate, Multiply
 from keras.utils import to_categorical
 from keras.models import Sequential, Model
 from keras import losses
@@ -132,20 +132,22 @@ print('The test samples are ' + str(len(y_test)) + '.')
 print('----------------------------------------------------------------------------------------------------')
 
 x_train = np.array(x_train)
-x_train = x_train.reshape((x_train.shape[0], x_train.shape[1], 1))
+# x_train = x_train.reshape((x_train.shape[0], x_train.shape[1], 1))
 
 x_aux_month_train = np.array(x_aux_month_train)
 x_aux_time_train = np.array(x_aux_time_train)
 x_aux_lalo_train = np.array(x_aux_lalo_train)
+x_aux_lalo_train = x_aux_lalo_train/90  # normalization
 
 y_train = np.array(y_train)
 
 x_test = np.array(x_test)
-x_test = x_test.reshape((x_test.shape[0], x_test.shape[1], 1))
+# x_test = x_test.reshape((x_test.shape[0], x_test.shape[1], 1))
 
 x_aux_month_test = np.array(x_aux_month_test)
 x_aux_time_test = np.array(x_aux_time_test)
 x_aux_lalo_test = np.array(x_aux_lalo_test)
+x_aux_lalo_test = x_aux_lalo_test/90  # normalization
 
 y_test = np.array(y_test)
 # y_test_new = []
@@ -184,31 +186,30 @@ y_test = y_test/max_maxWind
 
 def create_model():
     #输入数据的shape为(n_samples, timestamps, features)
-    main_input = Input(shape=(MAX_MAXWIND_SEQ_LEN, 1), name='main_input')
-    masking = Masking(mask_value=0)(main_input)
-    lstm = LSTM(1)(masking)
+    main_input = Input(shape=(MAX_MAXWIND_SEQ_LEN,), name='main_input')
+    # masking = Masking(mask_value=0)(main_input)
+    em_lstm = Embedding(input_dim=200, output_dim=4, input_length=MAX_MAXWIND_SEQ_LEN)(main_input)
+    lstm = LSTM(1)(em_lstm)
 
     aux_month_input = Input(shape=(1,), name='aux_month_input')
     aux_month_info = Embedding(input_dim=13, output_dim=2, input_length=1)(aux_month_input)
     aux_month_info = Flatten()(aux_month_info)
-    aux_month_info = aux_month_input
 
     aux_time_input = Input(shape=(1,), name='aux_time_input')
     aux_time_info = Embedding(input_dim=5, output_dim=2, input_length=1)(aux_time_input)
     aux_time_info = Flatten()(aux_time_info)
-    aux_time_info = aux_time_input
 
     aux_lalo_input = Input(shape=(2,), name='aux_lalo_input')
     aux_lalo_info = aux_lalo_input
 
-    x = Concatenate()([aux_month_info, aux_time_info, aux_lalo_info])
-    x = Dense(6, activation='relu')(x)
-    x = Concatenate()([lstm, x])
-    main_output = Dense(7, activation='relu', name='main_output')(x)
+    aux = Concatenate()([aux_month_info, aux_time_info, aux_lalo_info])
+    aux_deep = Dense(3, activation='relu')(aux)
+    aux_product = Multiply()([aux_month_info, aux_time_info, aux_lalo_info])
+    x = Concatenate()([lstm, aux_deep, aux_product])
+    main_output = Dense(5, activation='relu', name='main_output')(x)
     main_output = Dense(1, activation='sigmoid', name='main_output')(x)
 
     #下面还有个lstm，故return_sequences设置为True
-    # model.add(Embedding(input_dim=200, output_dim=EMBEDDING_DIM, input_length=MAX_MAXWIND_SEQ_LEN))
     # model.add(Masking(mask_value=0, input_shape=(MAX_MAXWIND_SEQ_LEN, 1)))
     # model.add(LSTM(units=1, return_sequences=False, activation='linear'))
     # model.add(LSTM(units=1, activation='linear'))
