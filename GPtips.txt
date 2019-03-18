@@ -10,3 +10,73 @@ baseline：arima
 arima不适合于这种台风的应用场景
 
 arima需要重新处理成平稳数据（对数变换；平滑法(时间段均值)；差分）
+
+-------------------------------------------------------------
+
+Neural Attentive Session-based Recommendation
+
+ModelingLong-andShort-TermTemporalPatternswithDeep NeuralNetworks
+
+------------------------------------------------------------------------------
+
+Autoregressive Convolutional Neural Networks for Asynchronous Time Series
+
+Adversarial Time-to-Event Modeling
+
+Hierarchical Deep Generative Models for Multi-Rate Multivariate Time Series.
+
+Continuous-Time Flows for Efficient Inference and Density Estimation.
+
+Learning Maximum-A-Posteriori Perturbation Models for Structured Prediction in Polynomial Time
+
+Time Limits in Reinforcement Learning
+
+Constant-Time Predictive Distributions for Gaussian Processes
+
+PredRNN++: Towards A Resolution of the Deep-in-Time Dilemma in Spatiotemporal Predictive Learning
+
+Continuous and Discrete-time Accelerated Stochastic Mirror Descent for Strongly Convex Functions
+
+------------------------------------------------------------
+
+Prediction Rule Reshaping
+
+Predict and Constrain: Modeling Cardinality in Deep Structured Prediction
+
+Structured Output Learning with Abstention: Application to Accurate Opinion Prediction
+
+Learning Maximum-A-Posteriori Perturbation Models for Structured Prediction in Polynomial Time
+
+Recurrent Predictive State Policy Networks
+
+Unbiased Objective Estimation in Predictive Optimization
+
+Video Prediction with Appearance and Motion Conditions
+
+Self-Bounded Prediction Suffix Tree via Approximate String Matching
+
+Compiling Combinatorial Prediction Games
+
+Detecting and Correcting for Label Shift with Black Box Predictors
+
+Differentiable Dynamic Programming for Structured Prediction and Attention
+
+Learning to Speed Up Structured Output Prediction
+
+High-Quality Prediction Intervals for Deep Learning: A Distribution-Free, Ensembled Approach
+
+Constant-Time Predictive Distributions for Gaussian Processes
+
+Generalized Earley Parser: Bridging Symbolic Grammars and Sequence Data for Future Prediction
+
+TAPAS: Tricks to Accelerate (encrypted) Prediction As a Service
+
+Approximation Algorithms for Cascading Prediction Models
+
+PredRNN++: Towards A Resolution of the Deep-in-Time Dilemma in Spatiotemporal Predictive Learning
+
+Deep Predictive Coding Network for Object Recognition
+
+RadialGAN: Leveraging multiple datasets to improve target-specific predictive models using Generative Adversarial Networks
+
+Hierarchical Long-term Video Prediction without Supervision

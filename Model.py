@@ -1,9 +1,10 @@
 import pandas as pd
 import numpy as np
+import math
 import matplotlib.pyplot as plt
 import tensorflow as tf
 import keras as K
-from keras.layers import Input, Masking, Embedding, Flatten, Dense, LSTM, Concatenate, Multiply
+from keras.layers import Input, Masking, Embedding, Flatten, Dense, LSTM, Concatenate, Multiply, Add, Permute, Reshape
 from keras.utils import to_categorical
 from keras.models import Sequential, Model
 from keras import losses
@@ -75,6 +76,8 @@ def data2tensor(dataset, MAX_MAXWIND_SEQ_LEN):
     x_aux_month = []
     x_aux_time = []
     x_aux_lalo = []
+    x_aux_stat = []
+    x_aux_len = []
     y = []
 
     for item in dataset:
@@ -112,16 +115,23 @@ def data2tensor(dataset, MAX_MAXWIND_SEQ_LEN):
             x.append(maxWind_seq[:i])
             y.append(maxWind_seq[i])
 
+    for item in x:
+        x_aux_len.append([1-math.log(len(item))])
+        sum = 0
+        for i in item:
+            sum = sum+i
+        x_aux_stat.append([sum/len(item)])
+
     # fill 0s in x to reach length of 120 (which is MAX_MAXWIND_SEQ_LEN) for lstm
     for item in x:
         while len(item) < MAX_MAXWIND_SEQ_LEN:
             item.append(0)
 
-    return x, x_aux_month, x_aux_time, x_aux_lalo, y
+    return x, x_aux_month, x_aux_time, x_aux_lalo, x_aux_len, x_aux_stat, y
 
 
-x_train, x_aux_month_train, x_aux_time_train, x_aux_lalo_train, y_train = data2tensor(train_data, MAX_MAXWIND_SEQ_LEN)
-x_test, x_aux_month_test, x_aux_time_test, x_aux_lalo_test, y_test = data2tensor(test_data, MAX_MAXWIND_SEQ_LEN)
+x_train, x_aux_month_train, x_aux_time_train, x_aux_lalo_train, x_aux_len_train, x_aux_stat_train, y_train = data2tensor(train_data, MAX_MAXWIND_SEQ_LEN)
+x_test, x_aux_month_test, x_aux_time_test, x_aux_lalo_test, x_aux_len_test, x_aux_stat_test, y_test = data2tensor(test_data, MAX_MAXWIND_SEQ_LEN)
 assert len(x_train)==len(x_aux_month_train) and len(x_train)==len(x_aux_time_train) \
        and len(x_train)==len(x_aux_lalo_train) and len(x_train)==len(y_train)
 assert len(x_test)==len(x_aux_month_test) and len(x_test)==len(x_aux_time_test) \
@@ -132,37 +142,50 @@ print('The test samples are ' + str(len(y_test)) + '.')
 print('----------------------------------------------------------------------------------------------------')
 
 x_train = np.array(x_train)
-# x_train = x_train.reshape((x_train.shape[0], x_train.shape[1], 1))
-
+x_train_rev = x_train.tolist()
+for item in x_train_rev:
+    item.reverse()
+x_train_rev = np.array(x_train_rev)
+x_train_lstm = x_train.reshape((x_train.shape[0], x_train.shape[1], 1))
 x_aux_month_train = np.array(x_aux_month_train)
 x_aux_time_train = np.array(x_aux_time_train)
 x_aux_lalo_train = np.array(x_aux_lalo_train)
-x_aux_lalo_train = x_aux_lalo_train/90  # normalization
-
+x_aux_len_train = np.array(x_aux_len_train)
+x_aux_stat_train = np.array(x_aux_stat_train)
 y_train = np.array(y_train)
 
 x_test = np.array(x_test)
-# x_test = x_test.reshape((x_test.shape[0], x_test.shape[1], 1))
-
+x_test_rev = x_test.tolist()
+for item in x_test_rev:
+    item.reverse()
+x_test_rev = np.array(x_test_rev)
+x_test_lstm = x_test.reshape((x_test.shape[0], x_test.shape[1], 1))
 x_aux_month_test = np.array(x_aux_month_test)
 x_aux_time_test = np.array(x_aux_time_test)
 x_aux_lalo_test = np.array(x_aux_lalo_test)
-x_aux_lalo_test = x_aux_lalo_test/90  # normalization
-
+x_aux_len_test = np.array(x_aux_len_test)
+x_aux_stat_test = np.array(x_aux_stat_test)
 y_test = np.array(y_test)
-# y_test_new = []
-# for item in y_test:
-#     y_test_new.append(float(float(item)/200))  # normalization
-# y_test = y_test_new
 
 # normalization
 max_maxWind = np.max(x_train)
 if np.max(x_test) > max_maxWind:
     max_maxWind = np.max(x_test)
+
 x_train = x_train/max_maxWind
+x_train_rev = x_train_rev/max_maxWind
+x_train_lstm = x_train_lstm/max_maxWind
+x_aux_lalo_train = x_aux_lalo_train/90
+x_aux_stat_train = x_aux_stat_train/max_maxWind
 y_train = y_train/max_maxWind
+
 x_test = x_test/max_maxWind
+x_test_rev = x_test_rev/max_maxWind
+x_test_lstm = x_test_lstm/max_maxWind
+x_aux_lalo_test = x_aux_lalo_test/90
+x_aux_stat_test = x_aux_stat_test/max_maxWind
 y_test = y_test/max_maxWind
+
 
 # min_max_scaler = MinMaxScaler(feature_range=(0,1))  # normalization
 # x_aux_feat_all = np.vstack((x_aux_feat_train, x_aux_feat_test))
@@ -187,27 +210,42 @@ y_test = y_test/max_maxWind
 def create_model():
     #输入数据的shape为(n_samples, timestamps, features)
     main_input = Input(shape=(MAX_MAXWIND_SEQ_LEN,), name='main_input')
-    # masking = Masking(mask_value=0)(main_input)
-    em_lstm = Embedding(input_dim=200, output_dim=4, input_length=MAX_MAXWIND_SEQ_LEN)(main_input)
-    lstm = LSTM(1)(em_lstm)
-
+    main_input_rev = Input(shape=(MAX_MAXWIND_SEQ_LEN,), name='main_input_rev')
+    main_input_lstm = Input(shape=(MAX_MAXWIND_SEQ_LEN,1), name='main_input_lstm')
     aux_month_input = Input(shape=(1,), name='aux_month_input')
-    aux_month_info = Embedding(input_dim=13, output_dim=2, input_length=1)(aux_month_input)
-    aux_month_info = Flatten()(aux_month_info)
-
     aux_time_input = Input(shape=(1,), name='aux_time_input')
-    aux_time_info = Embedding(input_dim=5, output_dim=2, input_length=1)(aux_time_input)
-    aux_time_info = Flatten()(aux_time_info)
-
     aux_lalo_input = Input(shape=(2,), name='aux_lalo_input')
-    aux_lalo_info = aux_lalo_input
+    aux_len_input = Input(shape=(1,), name='aux_len_input')
+    aux_stat_input = Input(shape=(1,), name='aux_stat_input')
 
-    aux = Concatenate()([aux_month_info, aux_time_info, aux_lalo_info])
-    aux_deep = Dense(3, activation='relu')(aux)
-    aux_product = Multiply()([aux_month_info, aux_time_info, aux_lalo_info])
-    x = Concatenate()([lstm, aux_deep, aux_product])
-    main_output = Dense(5, activation='relu', name='main_output')(x)
-    main_output = Dense(1, activation='sigmoid', name='main_output')(x)
+    # masking = Masking(mask_value=0)(main_input_lstm)
+    em_lstm = Embedding(input_dim=200, output_dim=128, input_length=MAX_MAXWIND_SEQ_LEN, mask_zero=True)(main_input)
+    lstm = LSTM(4)(em_lstm)
+
+    # att = Dense(MAX_MAXWIND_SEQ_LEN, activation='softmax', name='this_dense')(lstm)
+    # a_probs = Multiply()([lstm, att])
+    # a = Reshape((MAX_MAXWIND_SEQ_LEN, 1))(a_probs)
+
+    # aux_month_info = Embedding(input_dim=13, output_dim=4, input_length=1)(aux_month_input)
+    # aux_month_info = Flatten()(aux_month_info)
+
+    # aux_time_info = Embedding(input_dim=5, output_dim=4, input_length=1)(aux_time_input)
+    # aux_time_info = Flatten()(aux_time_info)
+
+    # aux_lalo_info = Dense(4, activation='sigmoid')(aux_lalo_input)
+
+    # aux = Concatenate()([aux_month_info, aux_time_info, aux_lalo_info])
+    # aux_add = Add()([aux_month_info, aux_time_info, aux_lalo_info])
+    # aux_product = Multiply()([aux_month_info, aux_time_info, aux_lalo_info])
+    # aux_deep = Dense(12, activation='relu')(aux)
+    # x = Concatenate()([aux_add, aux_deep, aux_product])
+    # x = Dense(6, activation='relu')(x)
+    # x = Dense(3, activation='relu')(a)
+
+
+
+    # o = Concatenate()([lstm, aux_stat_input])
+    main_output = Dense(1, activation='sigmoid', name='finalDense')(lstm)
 
     #下面还有个lstm，故return_sequences设置为True
     # model.add(Masking(mask_value=0, input_shape=(MAX_MAXWIND_SEQ_LEN, 1)))
@@ -215,17 +253,17 @@ def create_model():
     # model.add(LSTM(units=1, activation='linear'))
     # model.add(Dense(units=1, activation='linear'))
 
-    model = Model(inputs=[main_input, aux_month_input, aux_time_input, aux_lalo_input], outputs=main_output)
+    model = Model(inputs=[main_input, main_input_rev, main_input_lstm, aux_month_input, aux_time_input, aux_lalo_input, aux_len_input, aux_stat_input], outputs=main_output)
     model.compile(loss='mean_squared_error', optimizer='adam')
     return model
 
 
 model = create_model()
-model.fit([x_train, x_aux_month_train, x_aux_time_train, x_aux_lalo_train], y_train,
+model.fit([x_train, x_train_rev, x_train_lstm, x_aux_month_train, x_aux_time_train, x_aux_lalo_train, x_aux_len_train, x_aux_stat_train], y_train,
           batch_size=512, epochs=100, validation_split=0.1, verbose=2)
 
 # make predictions
-testPredict = model.predict([x_test, x_aux_month_test, x_aux_time_test, x_aux_lalo_test])
+testPredict = model.predict([x_test, x_test_rev, x_test_lstm, x_aux_month_test, x_aux_time_test, x_aux_lalo_test, x_aux_len_test, x_aux_stat_test])
 testPredict = np.reshape(testPredict,(testPredict.shape[0]))
 print(y_test)
 print(testPredict)
@@ -234,3 +272,31 @@ testScore = (mean_squared_error(y_test, testPredict)) ** 0.5
 testScore = testScore * max_maxWind
 print('Test Score:')
 print(testScore)
+
+
+
+
+
+
+
+
+
+x_test = x_test.tolist()
+num_li = []
+for item in x_test:
+    num = 0
+    for i in item:
+        if i!=0:
+            num = num+1
+    num_li.append(num)
+
+substract_li = (y_test - testPredict) * max_maxWind
+plt.plot(num_li, color='blue')
+plt.plot(substract_li, color='red')
+plt.plot(y_test*max_maxWind, color='green')
+plt.plot(testPredict*max_maxWind, color='orange') # linestyle="--")
+plt.xlabel('test samples')
+plt.ylabel('max wind')
+plt.ylim(-100, 200)
+plt.title('All curves')
+plt.show()
