@@ -258,7 +258,7 @@ print(testPredict)
 y_pred = []
 
 cur_user = -1
-for i in user_test.shape[0]:
+for i in range(0, user_test.shape[0]):
     maxSigmoid = 0
     maxPredictWind = 0
     for j in range(10,190,5):
