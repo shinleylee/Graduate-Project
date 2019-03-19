@@ -1,7 +1,4 @@
 import numpy as np
 
-a = np.array([[1,2,3],[4,5,6]])
-b = np.array([['q','w','e'],['a','s','d']])
-
-c = np.concatenate([a,b],axis=0)
-print(c)
+x = [x for x in range(25,190,5)]
+print(x)
