@@ -262,9 +262,9 @@ for i in range(0, user_test.shape[0]):
     maxSigmoid = 0
     maxPredictWind = 0
     for j in range(10,190,5):
-        if maxSigmoid < testPredict[i*37+j]:
-            maxSigmoid = testPredict[i*37+j]
-            maxPredictWind = maxWind_li_input[j]
+        if maxSigmoid < testPredict[i*37+(j-10)/5]:
+            maxSigmoid = testPredict[i*37+(j-10)/5]
+            maxPredictWind = maxWind_li_input[math.ceil((j-10)/5)]
     y_pred.append(maxPredictWind)
 
 print(rate_test)
