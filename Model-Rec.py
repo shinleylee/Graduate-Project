@@ -248,7 +248,7 @@ def mse_weighted(y_true, y_pred):
 
 model = create_model()
 model.fit([user_train, item_train], rate_train,
-          batch_size=128, epochs=10, validation_split=0.1, verbose=2)
+          batch_size=128, epochs=2, validation_split=0.1, verbose=2)
 
 # make predictions
 testPredict = model.predict([user_test, item_test])
