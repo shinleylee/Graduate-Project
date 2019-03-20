@@ -16,6 +16,7 @@ from keras import backend as Kbe
 DATA_PATH = './dataset/'
 TRAIN_FILE = 'train.csv'
 TEST_FILE = 'test.csv'
+MAX_MAXWIND_SEQ_LEN = -1
 
 # read dataset to dataframe
 print('Loading data...')
@@ -60,9 +61,14 @@ for index, item in test_data_df.iterrows():
     # 6 Longitude
     # 7 MaxWind
 
+# get the MAX_SEQ_LEN
+for item in train_data + test_data:
+    maxLen = len(item[7])
+    if maxLen - 1 > MAX_MAXWIND_SEQ_LEN:
+        MAX_MAXWIND_SEQ_LEN = maxLen - 1
 
-# process the data list into tensors
-def data2tensor(dataset):
+# process the data into tensors
+def data2tensor(dataset, MAX_MAXWIND_SEQ_LEN):
     x = []
     x_aux_month = []
     x_aux_time = []
@@ -103,14 +109,8 @@ def data2tensor(dataset):
             x_aux_lalo_tensor.append(aux_longitude)
             x_aux_lalo.append(x_aux_lalo_tensor)
             # maxWind
-            maxWind_seq_5 = [(x-10)/5 for x in maxWind_seq]
-            if i == 1:
-                x.append([maxWind_seq_5[0]])
-            elif i == 2:
-                x.append([maxWind_seq_5[0]*100+maxWind_seq_5[1]])
-            else:
-                x.append([maxWind_seq_5[i-3]*10000+maxWind_seq_5[i-2]*100+maxWind_seq_5[i-1]])
-            y.append([maxWind_seq[i]])
+            x.append(maxWind_seq[:i])
+            y.append(maxWind_seq[i])
 
     for item in x:
         x_aux_len.append([1-math.log(len(item))])
@@ -119,11 +119,15 @@ def data2tensor(dataset):
             sum = sum+i
         x_aux_stat.append([sum/len(item)])
 
+    # fill 0s in x to reach length of 120 (which is MAX_MAXWIND_SEQ_LEN) for lstm
+    for item in x:
+        while len(item) < MAX_MAXWIND_SEQ_LEN:
+            item.append(0)
+
     return x, x_aux_month, x_aux_time, x_aux_lalo, x_aux_len, x_aux_stat, y
 
-
-x_train, x_aux_month_train, x_aux_time_train, x_aux_lalo_train, x_aux_len_train, x_aux_stat_train, y_train = data2tensor(train_data)
-x_test, x_aux_month_test, x_aux_time_test, x_aux_lalo_test, x_aux_len_test, x_aux_stat_test, y_test = data2tensor(test_data)
+x_train, x_aux_month_train, x_aux_time_train, x_aux_lalo_train, x_aux_len_train, x_aux_stat_train, y_train = data2tensor(train_data,MAX_MAXWIND_SEQ_LEN)
+x_test, x_aux_month_test, x_aux_time_test, x_aux_lalo_test, x_aux_len_test, x_aux_stat_test, y_test = data2tensor(test_data,MAX_MAXWIND_SEQ_LEN)
 assert len(x_train)==len(x_aux_month_train) and len(x_train)==len(x_aux_time_train) \
        and len(x_train)==len(x_aux_lalo_train) and len(x_train)==len(y_train)
 assert len(x_test)==len(x_aux_month_test) and len(x_test)==len(x_aux_time_test) \
@@ -139,114 +143,98 @@ y_train = np.array(y_train, dtype='int32')
 x_test = np.array(x_test, dtype='int32')
 y_test = np.array(y_test, dtype='int32')
 
-maxWind_li_input = [[x] for x in range(10,190,5)]
+# get rid of NOISE
+x_train[x_train == 67] = 65
+x_train[x_train == 77] = 75
+x_train[x_train == 84] = 85
+x_train[x_train == 93] = 95
+y_train[y_train == 67] = 65
+y_train[y_train == 77] = 75
+y_train[y_train == 84] = 85
+y_train[y_train == 93] = 95
+x_test[x_test == 67] = 65
+x_test[x_test == 77] = 75
+x_test[x_test == 84] = 85
+x_test[x_test == 93] = 95
+y_test[y_test == 67] = 65
+y_test[y_test == 77] = 75
+y_test[y_test == 84] = 85
+y_test[y_test == 93] = 95
 
+maxWind_li_input = [[x] for x in range(10,190,5)]
+maxWind_li_num = len(maxWind_li_input)
+
+user_num_train = x_train.shape[0]
 user_train_pos = x_train
-item_train_pos = y_train
-rate_train_pos = [1 for x in range(0,x_train.shape[0],1)]
+item_train_pos = y_train.reshape((y_train.shape[0],1))
+rate_train_pos = [1 for x in range(0,user_num_train)]
 
 user_train_neg = x_train.tolist()
 user_train_neg_new = []
 for item in user_train_neg:
-    user_train_neg_new.append(item)
-    user_train_neg_new.append(item)
-    user_train_neg_new.append(item)
-    user_train_neg_new.append(item)
-user_train_neg = np.array(user_train_neg_new, dtype='int32')
+    for i in range(0,maxWind_li_num-1):
+        user_train_neg_new.append(item)
+user_train_neg = np.array(user_train_neg_new)
 item_train_neg = []
-for num in item_train_pos:
-    item_train_neg.append(num - 5)
-    item_train_neg.append(num - 10)
-    item_train_neg.append(num + 5)
-    item_train_neg.append(num + 10)
+for pos_num in item_train_pos:
+    for neg_num in maxWind_li_input:
+        if pos_num[0] not in maxWind_li_input:
+            print('E: ', pos_num[0], 'not in maxWind_list.')
+        if pos_num[0] != neg_num:
+            item_train_neg.append(neg_num)
 item_train_neg = np.array(item_train_neg, dtype='int32')
-rate_train_neg = [0 for x in range(0,x_train.shape[0]*4,1)]
+rate_train_neg = [0 for x in range(0,user_num_train*(maxWind_li_num-1))]
 
 user_train = np.concatenate((user_train_pos, user_train_neg),axis=0)
 item_train = np.concatenate((item_train_pos, item_train_neg),axis=0)
 rate_train = np.array(rate_train_pos + rate_train_neg)
 
-user_test_num = x_test.shape[0]
+user_num_test = x_test.shape[0]
 user_test = x_test.tolist()
 user_test_new = []
 for item in user_test:
-    for i in range(10,190,5):
+    for i in range(0, maxWind_li_num):
         user_test_new.append(item)
 user_test = np.array(user_test_new, dtype='int32')
 item_test = []
-for i in range(0,x_test.shape[0],1):
+for i in range(0,user_num_test):
     for item in maxWind_li_input:
         item_test.append(item)
 item_test = np.array(item_test, dtype='int32')
 
 ## Prepare the data-------------------------------------------------------------------------------------------------
 
+
 def create_model():
     #输入数据的shape为(n_samples, timestamps, features)
-    user_input = Input(shape=(1,), dtype='int32',name='user_input')
-    user_em8 = Embedding(input_dim=360000, output_dim=8, input_length=1)(user_input)
-    user_em8 = Flatten()(user_em8)
-    user_em16 = Embedding(input_dim=360000, output_dim=16, input_length=1)(user_input)
-    user_em16 = Flatten()(user_em16)
+    user_input = Input(shape=(MAX_MAXWIND_SEQ_LEN,), dtype='int32', name='user_input')
+    user_em8 = Embedding(input_dim=190, output_dim=8, input_length=MAX_MAXWIND_SEQ_LEN, mask_zero=True)(user_input)
+    user_em8 = LSTM(1)(user_em8)
+    user_em16 = Embedding(input_dim=190, output_dim=16, input_length=MAX_MAXWIND_SEQ_LEN, mask_zero=True)(user_input)
+    user_em16 = LSTM(1)(user_em16)
     item_input = Input(shape=(1,), dtype='int32', name='item_input')
-    item_em8 = Embedding(input_dim=200, output_dim=8,  input_length=1)(item_input)
+    item_em8 = Embedding(input_dim=190, output_dim=8,  input_length=1)(item_input)
     item_em8 = Flatten()(item_em8)
-    item_em16 = Embedding(input_dim=200, output_dim=16, input_length=1)(item_input)
+    item_em16 = Embedding(input_dim=190, output_dim=16, input_length=1)(item_input)
     item_em16 = Flatten()(item_em16)
-
-    # masking = Masking(mask_value=0)(main_input_lstm)
-    # em_lstm = Embedding(input_dim=200, output_dim=8, input_length=MAX_MAXWIND_SEQ_LEN, mask_zero=True)(main_input)
-    # lstm = LSTM(4)(em_lstm)
-
-    # att = Dense(MAX_MAXWIND_SEQ_LEN, activation='softmax', name='this_dense')(lstm)
-    # a_probs = Multiply()([lstm, att])
-    # a = Reshape((MAX_MAXWIND_SEQ_LEN, 1))(a_probs)
-
-    # aux_month_info = Embedding(input_dim=13, output_dim=4, input_length=1)(aux_month_input)
-    # aux_month_info = Flatten()(aux_month_info)
-
-    # aux_time_info = Embedding(input_dim=5, output_dim=4, input_length=1)(aux_time_input)
-    # aux_time_info = Flatten()(aux_time_info)
-
-    # aux_lalo_info = Dense(4, activation='sigmoid')(aux_lalo_input)
-
-    # aux = Concatenate()([aux_month_info, aux_time_info, aux_lalo_info])
-    # aux_add = Add()([aux_month_info, aux_time_info, aux_lalo_info])
-    # aux_product = Multiply()([aux_month_info, aux_time_info, aux_lalo_info])
-    # aux_deep = Dense(12, activation='relu')(aux)
-    # x = Concatenate()([aux_add, aux_deep, aux_product])
-    # x = Dense(6, activation='relu')(x)
-    # x = Dense(3, activation='relu')(a)
 
     gmf = Multiply()([user_em8, item_em8])
     mlp = Concatenate()([user_em16, item_em16])
     mlp = Dense(16, activation='relu')(mlp)
+    mlp = Dense(8, activation='relu')(mlp)
 
     ncf = Concatenate()([gmf, mlp])
-    ncf = Dense(16, activation='relu')(ncf)
+    ncf = Dense(8, activation='relu')(ncf)
     main_output = Dense(1, activation='sigmoid', name='finalDense')(ncf)
-
-    #下面还有个lstm，故return_sequences设置为True
-    # model.add(Masking(mask_value=0, input_shape=(MAX_MAXWIND_SEQ_LEN, 1)))
-    # model.add(LSTM(units=1, return_sequences=False, activation='linear'))
-    # model.add(LSTM(units=1, activation='linear'))
-    # model.add(Dense(units=1, activation='linear'))
 
     model = Model(inputs=[user_input, item_input], outputs=main_output)
     model.compile(loss='binary_crossentropy', optimizer='adam')
     return model
 
-
 model = create_model()
-model.fit([user_train, item_train], rate_train, batch_size=128, epochs=50, validation_split=0.1, verbose=2)
+model.fit([user_train, item_train], rate_train, batch_size=512, epochs=100, validation_split=0.1, verbose=2)
 
-
-
-
-
-
-
-
+print('calculate rmse-------------------------------------------------------------------------------------------------')
 
 # make predictions
 testPredict = model.predict([user_test, item_test])
@@ -254,53 +242,19 @@ testPredict = np.reshape(testPredict,(testPredict.shape[0]))
 print(testPredict)
 
 y_pred = []
-for i in range(0, user_test_num):
-    maxSigmoid = 0
+for i in range(0, user_num_test):
+    sigmoids = []
     maxPredictWind = 0
-    for j in range(10,190,5):
-        idx = int(i*36+(j-10)/5)
-        if maxSigmoid <= testPredict[idx]:
-            maxSigmoid = testPredict[idx]
-            maxPredictWind = maxWind_li_input[idx-i*36][0]
+    for j in range(0,maxWind_li_num):
+        idx = int(i*maxWind_li_num + j)
+        sigmoids.append(testPredict[idx])
+    assert len(sigmoids) == maxWind_li_num
+    maxPredictWind = maxWind_li_input[sigmoids.index(max(sigmoids))][0]
     y_pred.append(maxPredictWind)
 
 print('groundTruth and prediction:')
 print(y_test.tolist())
 print(y_pred)
 
-mse = -1
-for i in range(0, y_test.shape[0]):
-    mse = mean_squared_error(y_test,y_pred)
-print('mse=',mse**0.5)
-
-
-
-exit()
-
-
-
-
-
-
-
-
-
-x_test = x_test.tolist()
-num_li = []
-for item in x_test:
-    num = 0
-    for i in item:
-        if i!=0:
-            num = num+1
-    num_li.append(num)
-
-substract_li = (y_test - testPredict) * max_maxWind
-plt.plot(num_li, color='blue')
-plt.plot(substract_li, color='red')
-plt.plot(y_test*max_maxWind, color='green')
-plt.plot(testPredict*max_maxWind, color='orange') # linestyle="--")
-plt.xlabel('test samples')
-plt.ylabel('max wind')
-plt.ylim(-100, 200)
-plt.title('All curves')
-plt.show()
+mse = mean_squared_error(y_test,y_pred)
+print('rmse=',mse**0.5)
