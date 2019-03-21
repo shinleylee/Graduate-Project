@@ -212,18 +212,27 @@ def create_model():
     user_em8 = LSTM(1)(user_em8)
     user_em16 = Embedding(input_dim=190, output_dim=16, input_length=MAX_MAXWIND_SEQ_LEN, mask_zero=True)(user_input)
     user_em16 = LSTM(1)(user_em16)
+    user_em32 = Embedding(input_dim=190, output_dim=32, input_length=MAX_MAXWIND_SEQ_LEN, mask_zero=True)(user_input)
+    user_em32 = LSTM(1)(user_em32)
     item_input = Input(shape=(1,), dtype='int32', name='item_input')
     item_em8 = Embedding(input_dim=190, output_dim=8,  input_length=1)(item_input)
     item_em8 = Flatten()(item_em8)
     item_em16 = Embedding(input_dim=190, output_dim=16, input_length=1)(item_input)
     item_em16 = Flatten()(item_em16)
+    item_em32 = Embedding(input_dim=190, output_dim=32, input_length=1)(item_input)
+    item_em32 = Flatten()(item_em32)
 
-    gmf = Multiply()([user_em8, item_em8])
-    mlp = Concatenate()([user_em16, item_em16])
-    mlp = Dense(16, activation='relu')(mlp)
-    mlp = Dense(8, activation='relu')(mlp)
+    add = Add()([user_em16, item_em16])
+    mul = Multiply()([user_em16, item_em16])
+    deep = Concatenate()([user_em32, item_em32])
+    deep = Dense(32, activation='relu')(deep)
+    deep = Dense(16, activation='relu')(deep)
+    wide = Concatenate()([user_em8, item_em8])
+    wide = Dense(16, activation='linear')(wide)
 
-    ncf = Concatenate()([gmf, mlp])
+    ncf = Concatenate()([add, mul, wide, deep])
+    ncf = Dense(32, activation='relu')(ncf)
+    ncf = Dense(16, activation='relu')(ncf)
     ncf = Dense(8, activation='relu')(ncf)
     main_output = Dense(1, activation='sigmoid', name='finalDense')(ncf)
 
@@ -232,7 +241,7 @@ def create_model():
     return model
 
 model = create_model()
-model.fit([user_train, item_train], rate_train, batch_size=512, epochs=100, validation_split=0.1, verbose=2)
+model.fit([user_train, item_train], rate_train, batch_size=1024, epochs=10, validation_split=0.1, verbose=2)
 
 print('calculate rmse-------------------------------------------------------------------------------------------------')
 
