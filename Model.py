@@ -4,7 +4,7 @@ import math
 import matplotlib.pyplot as plt
 import tensorflow as tf
 import keras as K
-from keras.layers import Input, Masking, Embedding, Flatten, Dense, LSTM, Concatenate, Multiply, Add, Permute, Reshape
+from keras.layers import Input, Masking, Embedding, Flatten, Dense, SimpleRNN, LSTM, Concatenate, Multiply, Add, Permute, Reshape
 from keras.utils import to_categorical
 from keras.models import Sequential, Model
 from keras import losses
@@ -222,7 +222,7 @@ def create_model():
 
     # masking = Masking(mask_value=0)(main_input_lstm)
     em_lstm = Embedding(input_dim=200, output_dim=8, input_length=MAX_MAXWIND_SEQ_LEN, mask_zero=True)(main_input)
-    lstm = LSTM(4)(em_lstm)
+    lstm = SimpleRNN(1)(em_lstm)
 
     # att = Dense(MAX_MAXWIND_SEQ_LEN, activation='softmax', name='this_dense')(lstm)
     # a_probs = Multiply()([lstm, att])
