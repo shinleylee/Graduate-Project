@@ -238,7 +238,7 @@ def create_model():
     main_output = Dense(1, activation='sigmoid', name='finalDense')(ncf)
 
     model = Model(inputs=[user_input, item_input], outputs=main_output)
-    model.compile(loss='binary_crossentropy', optimizer='adam')
+    model.compile(loss='mean_squared_error', optimizer='adam')  # binary_crossentropy
     return model
 
 model = create_model()
