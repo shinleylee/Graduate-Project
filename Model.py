@@ -16,11 +16,13 @@ from keras import backend as Kbe
 DATA_PATH = './dataset/'
 TRAIN_FILE = 'train.csv'
 TEST_FILE = 'test.csv'
-FIX_LEN = 19
-DRAW_CURVES = True
-TRAIN_LEN = 4
 MAX_MAXWIND_SEQ_LEN = -1
 EMBEDDING_DIM = 32
+LOSS_FUNCTION = 'mean_squared_error'
+OPTIMIZER = 'adam'
+BATCH_SIZE = 512
+EPOCHS = 100
+
 
 # read dataset to dataframe
 print('Loading data...')
@@ -78,8 +80,8 @@ def data2tensor(dataset, MAX_MAXWIND_SEQ_LEN):
     x_aux_month = []
     x_aux_time = []
     x_aux_lalo = []
-    x_aux_stat = []
     x_aux_len = []
+    x_aux_stat = []
     y = []
 
     for item in dataset:
@@ -117,14 +119,16 @@ def data2tensor(dataset, MAX_MAXWIND_SEQ_LEN):
             x.append(maxWind_seq[:i])
             y.append(maxWind_seq[i])
 
+    # aux_stat(statistics,including average) and aux_len
     for item in x:
-        x_aux_len.append([1-math.log(len(item))])
+        x_aux_len.append(len(item))
+        # x_aux_len.append([1-math.log(len(item))])  # length with standarizatrion
         sum = 0
         for i in item:
             sum = sum+i
         x_aux_stat.append([sum/len(item)])
 
-    # fill 0s in x to reach length of 120 (which is MAX_MAXWIND_SEQ_LEN) for lstm
+    # padding: fill 0s in x to reach length of 120 (which is MAX_MAXWIND_SEQ_LEN) for lstm
     for item in x:
         while len(item) < MAX_MAXWIND_SEQ_LEN:
             item.append(0)
@@ -134,14 +138,23 @@ def data2tensor(dataset, MAX_MAXWIND_SEQ_LEN):
 
 x_train, x_aux_month_train, x_aux_time_train, x_aux_lalo_train, x_aux_len_train, x_aux_stat_train, y_train = data2tensor(train_data, MAX_MAXWIND_SEQ_LEN)
 x_test, x_aux_month_test, x_aux_time_test, x_aux_lalo_test, x_aux_len_test, x_aux_stat_test, y_test = data2tensor(test_data, MAX_MAXWIND_SEQ_LEN)
-assert len(x_train)==len(x_aux_month_train) and len(x_train)==len(x_aux_time_train) \
-       and len(x_train)==len(x_aux_lalo_train) and len(x_train)==len(y_train)
-assert len(x_test)==len(x_aux_month_test) and len(x_test)==len(x_aux_time_test) \
-       and len(x_test) == len(x_aux_lalo_test) and len(x_test)==len(y_test)
+assert len(x_train)==len(x_aux_month_train) \
+    and len(x_train)==len(x_aux_time_train) \
+    and len(x_train)==len(x_aux_lalo_train) \
+    and len(x_train)==len(x_aux_len_train) \
+    and len(x_train)==len(x_aux_stat_train) \
+    and len(x_train)==len(y_train)
+assert len(x_test)==len(x_aux_month_test) \
+    and len(x_test)==len(x_aux_time_test) \
+    and len(x_test) == len(x_aux_lalo_test) \
+    and len(x_test) == len(x_aux_len_test) \
+    and len(x_test) == len(x_aux_stat_test) \
+    and len(x_test)==len(y_test)
 
-print('The train samples are ' + str(len(y_train)) + '.')
+print('The train samples are' + str(len(y_train)) + '.')
 print('The test samples are ' + str(len(y_test)) + '.')
 print('----------------------------------------------------------------------------------------------------')
+
 
 x_train = np.array(x_train)
 x_train_rev = x_train.tolist()
@@ -169,24 +182,53 @@ x_aux_len_test = np.array(x_aux_len_test)
 x_aux_stat_test = np.array(x_aux_stat_test)
 y_test = np.array(y_test)
 
-# normalization
+# get rid of NOISE
+x_train[x_train == 67] = 65
+x_train[x_train == 77] = 75
+x_train[x_train == 84] = 85
+x_train[x_train == 93] = 95
+y_train[y_train == 67] = 65
+y_train[y_train == 77] = 75
+y_train[y_train == 84] = 85
+y_train[y_train == 93] = 95
+x_test[x_test == 67] = 65
+x_test[x_test == 77] = 75
+x_test[x_test == 84] = 85
+x_test[x_test == 93] = 95
+y_test[y_test == 67] = 65
+y_test[y_test == 77] = 75
+y_test[y_test == 84] = 85
+y_test[y_test == 93] = 95
+
+#  print info
+print('MAX_MAXWIND_SEQ_LEN = ', MAX_MAXWIND_SEQ_LEN)
 max_maxWind = np.max(x_train)
 if np.max(x_test) > max_maxWind:
     max_maxWind = np.max(x_test)
+max_maxWind = max_maxWind + 5
+print('Max maxWind = ', max_maxWind)
+print('PARAMETER SETTINGS:')
+print('EMBEDDING_DIM = ', EMBEDDING_DIM)
+print('LOSS = ', LOSS_FUNCTION)
+print('OPTIMIZER = ', OPTIMIZER)
+print('BATCH_SIZE = ', BATCH_SIZE)
+print('EPOCHS = ', EPOCHS)
+print('----------------------------------------------------------------------------------------------------')
 
+# normalization
 # x_train = x_train/max_maxWind
-x_train_rev = x_train_rev/max_maxWind
+# x_train_rev = x_train_rev/max_maxWind
 x_train_lstm = x_train_lstm/max_maxWind
-x_aux_lalo_train = x_aux_lalo_train/90
-x_aux_stat_train = x_aux_stat_train/max_maxWind
-# y_train = y_train/max_maxWind
+# x_aux_lalo_train = x_aux_lalo_train/90
+# x_aux_stat_train = x_aux_stat_train/max_maxWind
+y_train = y_train/max_maxWind
 
 # x_test = x_test/max_maxWind
-x_test_rev = x_test_rev/max_maxWind
+# x_test_rev = x_test_rev/max_maxWind
 x_test_lstm = x_test_lstm/max_maxWind
-x_aux_lalo_test = x_aux_lalo_test/90
-x_aux_stat_test = x_aux_stat_test/max_maxWind
-# y_test = y_test/max_maxWind
+# x_aux_lalo_test = x_aux_lalo_test/90
+# x_aux_stat_test = x_aux_stat_test/max_maxWind
+y_test = y_test/max_maxWind
 
 
 # min_max_scaler = MinMaxScaler(feature_range=(0,1))  # normalization
@@ -210,7 +252,7 @@ x_aux_stat_test = x_aux_stat_test/max_maxWind
 ## Prepare the data-------------------------------------------------------------------------------------------------
 
 def create_model():
-    #输入数据的shape为(n_samples, timestamps, features)
+    #  Inputs 输入数据的shape为(n_samples, timestamps, features)
     main_input = Input(shape=(MAX_MAXWIND_SEQ_LEN,), name='main_input')
     main_input_rev = Input(shape=(MAX_MAXWIND_SEQ_LEN,), name='main_input_rev')
     main_input_lstm = Input(shape=(MAX_MAXWIND_SEQ_LEN,1), name='main_input_lstm')
@@ -220,9 +262,12 @@ def create_model():
     aux_len_input = Input(shape=(1,), name='aux_len_input')
     aux_stat_input = Input(shape=(1,), name='aux_stat_input')
 
-    # masking = Masking(mask_value=0)(main_input_lstm)
-    em_lstm = Embedding(input_dim=200, output_dim=8, input_length=MAX_MAXWIND_SEQ_LEN, mask_zero=True)(main_input)
-    lstm = SimpleRNN(1)(em_lstm)
+
+    if EMBEDDING_DIM == -1:
+        lstm_input = Masking(mask_value=0)(main_input_lstm)
+    else:
+        lstm_input = Embedding(input_dim=int(max_maxWind), output_dim=EMBEDDING_DIM, input_length=MAX_MAXWIND_SEQ_LEN, mask_zero=True)(main_input)
+    lstm = SimpleRNN(1)(lstm_input)
 
     # att = Dense(MAX_MAXWIND_SEQ_LEN, activation='softmax', name='this_dense')(lstm)
     # a_probs = Multiply()([lstm, att])
@@ -244,10 +289,8 @@ def create_model():
     # x = Dense(6, activation='relu')(x)
     # x = Dense(3, activation='relu')(a)
 
-
-
     # o = Concatenate()([lstm, aux_stat_input])
-    main_output = Dense(1, activation='sigmoid', name='finalDense')(lstm)
+    main_output = lstm# Dense(1, activation='sigmoid', name='finalDense')(lstm)
 
     #下面还有个lstm，故return_sequences设置为True
     # model.add(Masking(mask_value=0, input_shape=(MAX_MAXWIND_SEQ_LEN, 1)))
@@ -256,28 +299,29 @@ def create_model():
     # model.add(Dense(units=1, activation='linear'))
 
     model = Model(inputs=[main_input, main_input_rev, main_input_lstm, aux_month_input, aux_time_input, aux_lalo_input, aux_len_input, aux_stat_input], outputs=main_output)
-    model.compile(loss='mean_squared_error', optimizer='adam')
+    model.compile(loss=LOSS_FUNCTION, optimizer=OPTIMIZER)
     return model
-
-
-def mse_weighted(y_true, y_pred):
-    y_diff = y_true - y_pred
-    weight = 100 * y_diff
-    return Kbe.mean(weight*Kbe.square(y_pred - y_true), axis=-1)
 
 
 model = create_model()
 model.fit([x_train, x_train_rev, x_train_lstm, x_aux_month_train, x_aux_time_train, x_aux_lalo_train, x_aux_len_train, x_aux_stat_train], y_train,
-          batch_size=128, epochs=100, validation_split=0.1, verbose=2)
+          batch_size=BATCH_SIZE, epochs=EPOCHS, validation_split=0.1, verbose=2)
+print('----------------------------------------------------------------------------------------------------')
 
 # make predictions
-testPredict = model.predict([x_test, x_test_rev, x_test_lstm, x_aux_month_test, x_aux_time_test, x_aux_lalo_test, x_aux_len_test, x_aux_stat_test])
-testPredict = np.reshape(testPredict,(testPredict.shape[0]))
+y_pred = model.predict([x_test, x_test_rev, x_test_lstm, x_aux_month_test, x_aux_time_test, x_aux_lalo_test, x_aux_len_test, x_aux_stat_test])
+y_pred = np.reshape(y_pred,(y_pred.shape[0]))
+y_pred = y_pred * max_maxWind
+y_pred = y_pred.tolist()
+y_test = y_test * max_maxWind
+y_test = y_test.tolist()
+print('Prediction:')
+print(y_pred)
+print('Ground Truth:')
 print(y_test)
-print(testPredict)
 
-testScore = (mean_squared_error(y_test, testPredict)) ** 0.5
-testScore = testScore * max_maxWind
+testScore = (mean_squared_error(y_true=y_test, y_pred=y_pred)) ** 0.5
+# testScore = testScore * max_maxWind
 print('Test Score:')
 print(testScore)
 
@@ -287,24 +331,23 @@ print(testScore)
 
 
 
-
-
-x_test = x_test.tolist()
-num_li = []
-for item in x_test:
-    num = 0
-    for i in item:
-        if i!=0:
-            num = num+1
-    num_li.append(num)
-
-substract_li = (y_test - testPredict) * max_maxWind
-plt.plot(num_li, color='blue')
-plt.plot(substract_li, color='red')
-plt.plot(y_test*max_maxWind, color='green')
-plt.plot(testPredict*max_maxWind, color='orange') # linestyle="--")
-plt.xlabel('test samples')
-plt.ylabel('max wind')
-plt.ylim(-100, 200)
-plt.title('All curves')
-plt.show()
+# draw result curves
+# x_test = x_test.tolist()
+# num_li = []
+# for item in x_test:
+#     num = 0
+#     for i in item:
+#         if i!=0:
+#             num = num+1
+#     num_li.append(num)
+#
+# substract_li = (y_test - testPredict) * max_maxWind
+# plt.plot(num_li, color='blue')
+# plt.plot(substract_li, color='red')
+# plt.plot(y_test*max_maxWind, color='green')
+# plt.plot(testPredict*max_maxWind, color='orange') # linestyle="--")
+# plt.xlabel('test samples')
+# plt.ylabel('max wind')
+# plt.ylim(-100, 200)
+# plt.title('All curves')
+# plt.show()
