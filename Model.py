@@ -4,13 +4,14 @@ import math
 import matplotlib.pyplot as plt
 import tensorflow as tf
 import keras as K
-from keras.layers import Input, Masking, Embedding, Flatten, Dense, SimpleRNN, LSTM, Concatenate, Multiply, Add, Permute, Reshape
+from keras.layers import Input, Masking, Embedding, Flatten, Dense, RNN, SimpleRNN, GRU, LSTM, Concatenate, Multiply, Add, Permute, Reshape
+from keras.layers.wrappers import Bidirectional
 from keras.utils import to_categorical
 from keras.models import Sequential, Model
 from keras import losses
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.metrics import mean_squared_error
-
+from keras.utils import plot_model
 from keras import backend as Kbe
 
 DATA_PATH = './dataset/'
@@ -264,10 +265,10 @@ def create_model():
 
 
     if EMBEDDING_DIM == -1:
-        lstm_input = Masking(mask_value=0)(main_input_lstm)
+        masked = Masking(mask_value=0)(main_input_lstm)
     else:
-        lstm_input = Embedding(input_dim=int(max_maxWind), output_dim=EMBEDDING_DIM, input_length=MAX_MAXWIND_SEQ_LEN, mask_zero=True)(main_input)
-    lstm = SimpleRNN(1)(lstm_input)
+        masked = Embedding(input_dim=int(max_maxWind), output_dim=EMBEDDING_DIM, input_length=MAX_MAXWIND_SEQ_LEN, mask_zero=True)(main_input)
+    rnn = Bidirectional(LSTM(1))(masked)
 
     # att = Dense(MAX_MAXWIND_SEQ_LEN, activation='softmax', name='this_dense')(lstm)
     # a_probs = Multiply()([lstm, att])
@@ -290,7 +291,7 @@ def create_model():
     # x = Dense(3, activation='relu')(a)
 
     # o = Concatenate()([lstm, aux_stat_input])
-    main_output = lstm# Dense(1, activation='sigmoid', name='finalDense')(lstm)
+    main_output = Dense(1, activation='sigmoid', name='finalDense')(rnn)
 
     #下面还有个lstm，故return_sequences设置为True
     # model.add(Masking(mask_value=0, input_shape=(MAX_MAXWIND_SEQ_LEN, 1)))
@@ -325,7 +326,8 @@ testScore = (mean_squared_error(y_true=y_test, y_pred=y_pred)) ** 0.5
 print('Test Score:')
 print(testScore)
 
-
+model.summary()
+# plot_model(model,to_file="./bi-lstm.png")
 
 
 
