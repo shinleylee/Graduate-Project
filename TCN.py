@@ -4,7 +4,7 @@ import math
 import matplotlib.pyplot as plt
 import tensorflow as tf
 import keras as K
-from keras.layers import Input, Masking, Embedding, Flatten, Dense, RNN, SimpleRNN, GRU, LSTM, Concatenate, Multiply, Add, Permute, Reshape, Conv1D, Activation, SpatialDropout1D, BatchNormalization
+from keras.layers import Input, Masking, Embedding, Flatten, Dense, RNN, SimpleRNN, GRU, LSTM, Concatenate, Multiply, Add, Permute, Reshape, Conv1D, Activation, SpatialDropout1D, BatchNormalization, Lambda
 from keras.layers.wrappers import Bidirectional
 from keras.utils import to_categorical
 from keras.models import Sequential, Model
@@ -18,7 +18,7 @@ DATA_PATH = './dataset/'
 TRAIN_FILE = 'train.csv'
 TEST_FILE = 'test.csv'
 MAX_MAXWIND_SEQ_LEN = -1
-EMBEDDING_DIM = -1
+EMBEDDING_DIM = 4
 LOSS_FUNCTION = 'mean_squared_error'
 OPTIMIZER = 'adam'
 BATCH_SIZE = 512
@@ -273,13 +273,26 @@ def create_model():
     else:
         masked = Embedding(input_dim=int(max_maxWind), output_dim=EMBEDDING_DIM, input_length=MAX_MAXWIND_SEQ_LEN, mask_zero=True)(main_input)
 
-    prev_x = masked
+    prev_x = main_input_lstm
     x = Conv1D(filters=NUM_FILTERS, kernel_size=KERNEL_SIZE, dilation_rate=1, padding='causal')(prev_x)
-    x = BatchNormalization()(x)  # TODO should be WeightNorm here.
+    # x = BatchNormalization()(x)  # TODO should be WeightNorm here.
+    x = Activation('relu')(x)
+    x = SpatialDropout1D(rate=DROPOUT_RATE)(x)
+    x = Conv1D(filters=NUM_FILTERS, kernel_size=KERNEL_SIZE, dilation_rate=1, padding='causal')(x)
+    # x = BatchNormalization()(x)  # TODO should be WeightNorm here.
+    x = Activation('relu')(x)
+    x = SpatialDropout1D(rate=DROPOUT_RATE)(x)
+    # 1x1 conv to match the shapes (channel dimension).
+    prev_x = Conv1D(NUM_FILTERS, 1, padding='same')(prev_x)
+    res_x = Add()([prev_x, x])
+
+    prev_x = res_x
+    x = Conv1D(filters=NUM_FILTERS, kernel_size=KERNEL_SIZE, dilation_rate=2, padding='causal')(prev_x)
+    # x = BatchNormalization()(x)  # TODO should be WeightNorm here.
     x = Activation('relu')(x)
     x = SpatialDropout1D(rate=DROPOUT_RATE)(x)
     x = Conv1D(filters=NUM_FILTERS, kernel_size=KERNEL_SIZE, dilation_rate=2, padding='causal')(x)
-    x = BatchNormalization()(x)  # TODO should be WeightNorm here.
+    # x = BatchNormalization()(x)  # TODO should be WeightNorm here.
     x = Activation('relu')(x)
     x = SpatialDropout1D(rate=DROPOUT_RATE)(x)
     # 1x1 conv to match the shapes (channel dimension).
@@ -288,21 +301,37 @@ def create_model():
 
     prev_x = res_x
     x = Conv1D(filters=NUM_FILTERS, kernel_size=KERNEL_SIZE, dilation_rate=4, padding='causal')(prev_x)
-    x = BatchNormalization()(x)  # TODO should be WeightNorm here.
+    # x = BatchNormalization()(x)  # TODO should be WeightNorm here.
     x = Activation('relu')(x)
     x = SpatialDropout1D(rate=DROPOUT_RATE)(x)
-    x = Conv1D(filters=NUM_FILTERS, kernel_size=KERNEL_SIZE, dilation_rate=8, padding='causal')(x)
-    x = BatchNormalization()(x)  # TODO should be WeightNorm here.
+    x = Conv1D(filters=NUM_FILTERS, kernel_size=KERNEL_SIZE, dilation_rate=4, padding='causal')(x)
+    # x = BatchNormalization()(x)  # TODO should be WeightNorm here.
     x = Activation('relu')(x)
     x = SpatialDropout1D(rate=DROPOUT_RATE)(x)
     # 1x1 conv to match the shapes (channel dimension).
     prev_x = Conv1D(NUM_FILTERS, 1, padding='same')(prev_x)
     res_x = Add()([prev_x, x])
 
-感受野需要多少层要算一下
+    prev_x = res_x
+    x = Conv1D(filters=NUM_FILTERS, kernel_size=KERNEL_SIZE, dilation_rate=8, padding='causal')(prev_x)
+    # x = BatchNormalization()(x)  # TODO should be WeightNorm here.
+    x = Activation('relu')(x)
+    x = SpatialDropout1D(rate=DROPOUT_RATE)(x)
+    x = Conv1D(filters=NUM_FILTERS, kernel_size=KERNEL_SIZE, dilation_rate=8, padding='causal')(x)
+    # x = BatchNormalization()(x)  # TODO should be WeightNorm here.
+    x = Activation('relu')(x)
+    x = SpatialDropout1D(rate=DROPOUT_RATE)(x)
+    # 1x1 conv to match the shapes (channel dimension).
+    prev_x = Conv1D(NUM_FILTERS, 1, padding='same')(prev_x)
+    res_x = Add()([prev_x, x])
+
     prev_x = res_x
     x = Conv1D(filters=NUM_FILTERS, kernel_size=KERNEL_SIZE, dilation_rate=16, padding='causal')(prev_x)
-    x = BatchNormalization()(x)  # TODO should be WeightNorm here.
+    # x = BatchNormalization()(x)  # TODO should be WeightNorm here.
+    x = Activation('relu')(x)
+    x = SpatialDropout1D(rate=DROPOUT_RATE)(x)
+    x = Conv1D(filters=NUM_FILTERS, kernel_size=KERNEL_SIZE, dilation_rate=16, padding='causal')(x)
+    # x = BatchNormalization()(x)  # TODO should be WeightNorm here.
     x = Activation('relu')(x)
     x = SpatialDropout1D(rate=DROPOUT_RATE)(x)
     # 1x1 conv to match the shapes (channel dimension).
@@ -310,7 +339,8 @@ def create_model():
     res_x = Add()([prev_x, x])
 
     res_x = Flatten()(res_x)
-    main_output = Dense(1, activation='sigmoid', name='finalDense')(res_x)
+    x = Dense(MAX_MAXWIND_SEQ_LEN, activation='relu')(res_x)
+    main_output = Dense(1, activation='sigmoid', name='finalDense')(x)
 
     model = Model(inputs=[main_input, main_input_rev, main_input_lstm, aux_month_input, aux_time_input, aux_lalo_input, aux_len_input, aux_stat_input], outputs=main_output)
     model.compile(loss=LOSS_FUNCTION, optimizer=OPTIMIZER)
