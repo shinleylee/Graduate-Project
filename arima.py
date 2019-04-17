@@ -6,13 +6,15 @@ import statsmodels.api as sm
 import matplotlib.pyplot as plt
 from statsmodels.tsa.seasonal import seasonal_decompose
 from statsmodels.graphics.tsaplots import acf,pacf,plot_acf,plot_pacf
-from statsmodels.tsa.arima_model import ARMA
+from statsmodels.tsa.arima_model import ARIMA
 
 
 DATA_PATH = './dataset/'
 TRAIN_FILE = 'train.csv'
 TEST_FILE = 'test.csv'
 MAX_MAXWIND_SEQ_LEN = -1
+MIN_LEN = 8
+STATIONARIZATION='logdiff'  # equal,diff1,diff2,diff3,diff4,log,sqrt,logdiff
 
 
 # read dataset to dataframe
@@ -80,7 +82,7 @@ def data2tensor(dataset, MAX_MAXWIND_SEQ_LEN):
         maxWind_seq = item[7]
         item_seq_len = len(maxWind_seq)
 
-        for i in range(1, item_seq_len):
+        for i in range(MIN_LEN+1, item_seq_len):
             # month
             # aux_date = item[1][i]
             # aux_month = (aux_date//100)%100
@@ -197,7 +199,7 @@ print('-------------------------------------------------------------------------
 #     max_maxWind = np.max(x_test)
 # max_maxWind = max_maxWind + 5
 # print('Max maxWind = ', max_maxWind)
-print('----------------------------------------------------------------------------------------------------')
+# print('----------------------------------------------------------------------------------------------------')
 
 # normalization
 # x_train = x_train/max_maxWind
@@ -235,113 +237,92 @@ print('-------------------------------------------------------------------------
 
 ## Prepare the data-------------------------------------------------------------------------------------------------
 
-# stationarization
-x_test_log = []
+# stationarization and show the curves
+x_test_stationary = []
 for i in x_test:
-    row_log = []
-    row_log2 = []
-    row_log3 = []
-    row_log4 = []
-    # # equal
-    # for j in i:
-    #     row_log.append(j)
-    # # sqrt
-    # for j in i:
-    #     row_log.append(np.log(j))
-    # if row_log!=[]:
-    #     x_test_log.append(row_log)
-    # # diff
-    # for j in range(1,len(i)):
-    #     row_log.append(i[j]-i[j-1])
-    # # diff 2
-    # for j in range(1,len(i)):
-    #     row_log.append(i[j]-i[j-1])
-    # for k in range(1,len(row_log)):
-    #     row_log2.append(row_log[k]-row_log[k-1])
-    # row_log = row_log2
-    # diff 3
-    for j in range(1,len(i)):
-        row_log.append(i[j]-i[j-1])
-    for k in range(1,len(row_log)):
-        row_log2.append(row_log[k]-row_log[k-1])
-    for l in range(1,len(row_log2)):
-        row_log3.append(row_log2[l]-row_log2[l-1])
-    row_log = row_log3
-    # # diff 4
-    # for j in range(1,len(i)):
-    #     row_log.append(i[j]-i[j-1])
-    # for k in range(1,len(row_log)):
-    #     row_log2.append(row_log[k]-row_log[k-1])
-    # for l in range(1,len(row_log2)):
-    #     row_log3.append(row_log2[l]-row_log2[l-1])
-    # for m in range(1,len(row_log3)):
-    #     row_log4.append(row_log3[m]-row_log3[m-1])
-    # row_log = row_log4
-    # # sqrt
-    # for j in i:
-    #     row_log.append(np.sqrt(j))
-    # # log diff
-    # for j in range(1,len(i)):
-    #     row_log.append(np.log(i[j]-np.log(i[j-1])))
-    if row_log!=[]:
-        x_test_log.append(row_log)
-    # diff func
-    # i = pd.DataFrame(i)
-    # i = i.diff(1)
-    # x_test_log.append(i[0].tolist())
-# draw curves
-for s in x_test_log:
-    time_series = pd.Series(s)
-    time_series.plot()
-    plt.xlim(0, 120)
+    # equal,diff1,diff2,diff3,diff4,log,sqrt,logdiff
+    if STATIONARIZATION=='equal':
+        row_stationary = pd.Series(i)
+        row_stationary.plot()
+        x_test_stationary.append(row_stationary.tolist())
+    if STATIONARIZATION=='diff1':
+        row_stationary = pd.Series(i).diff(1)
+        row_stationary.plot()
+        x_test_stationary.append(row_stationary.tolist()[1:])
+    if STATIONARIZATION=='diff2':
+        row_stationary = pd.Series(i).diff(1)
+        row_stationary2 = pd.Series(row_stationary).diff(1)
+        row_stationary2.plot()
+        x_test_stationary.append(row_stationary2.tolist()[2:])
+    if STATIONARIZATION=='diff3':
+        row_stationary = pd.Series(i).diff(1)
+        row_stationary2 = pd.Series(row_stationary).diff(1)
+        row_stationary3 = pd.Series(row_stationary2).diff(1)
+        row_stationary3.plot()
+        x_test_stationary.append(row_stationary3.tolist()[3:])
+    if STATIONARIZATION=='diff4':
+        row_stationary = pd.Series(i).diff(1)
+        row_stationary2 = pd.Series(row_stationary).diff(1)
+        row_stationary3 = pd.Series(row_stationary2).diff(1)
+        row_stationary4 = pd.Series(row_stationary3).diff(1)
+        row_stationary4.plot()
+        x_test_stationary.append(row_stationary4.tolist()[4:])
+    if STATIONARIZATION=='sqrt':
+        row_stationary = []
+        for j in i:
+            row_stationary.append(np.sqrt(j))
+        if row_stationary != []:
+            x_test_stationary.append(row_stationary)
+            pd.Series(row_stationary).plot()
+    if STATIONARIZATION=='log':
+        row_stationary = []
+        for j in i:
+            row_stationary.append(np.log(j))
+        if row_stationary != []:
+            x_test_stationary.append(row_stationary)
+            pd.Series(row_stationary).plot()
+    if STATIONARIZATION=='logdiff':
+        row_stationary = []
+        for j in i:
+            row_stationary.append(np.log(j))
+        if row_stationary != []:
+            row_stationary = pd.Series(row_stationary)
+            row_stationary.plot()
+            x_test_stationary.append(row_stationary.tolist())
 plt.show()
 
+
 # ADF
-counts_all = 0
 counts = 0
-for s in x_test_log:
+for s in x_test_stationary:
     s = pd.DataFrame(s)
     s = s.dropna()
     s = s[0].tolist()
-    if len(s) >= 3:
-        counts_all = counts_all+1
-        t=sm.tsa.stattools.adfuller(s, maxlag=1)
-        output=pd.DataFrame(index=['Test Statistic Value', "p-value", "Lags Used", "Number of Observations Used","Critical Value(1%)","Critical Value(5%)","Critical Value(10%)"],columns=['value'])
-        output['value']['Test Statistic Value'] = t[0]
-        output['value']['p-value'] = t[1]
-        output['value']['Lags Used'] = t[2]
-        output['value']['Number of Observations Used'] = t[3]
-        output['value']['Critical Value(1%)'] = t[4]['1%']
-        output['value']['Critical Value(5%)'] = t[4]['5%']
-        output['value']['Critical Value(10%)'] = t[4]['10%']
-        if t[0] <= t[4]['10%']:
-            counts = counts+1
-            print(output)
-print('all sequence counts = ', counts_all)
+    t=sm.tsa.stattools.adfuller(s, maxlag=1)
+    output=pd.DataFrame(index=['Test Statistic Value', "p-value", "Lags Used", "Number of Observations Used","Critical Value(1%)","Critical Value(5%)","Critical Value(10%)"],columns=['value'])
+    output['value']['Test Statistic Value'] = t[0]
+    output['value']['p-value'] = t[1]
+    output['value']['Lags Used'] = t[2]
+    output['value']['Number of Observations Used'] = t[3]
+    output['value']['Critical Value(1%)'] = t[4]['1%']
+    output['value']['Critical Value(5%)'] = t[4]['5%']
+    output['value']['Critical Value(10%)'] = t[4]['10%']
+    if t[0] <= t[4]['5%']:
+        counts = counts+1
+        # print(output)
 print('stationary sequence counts = ',counts)
 
-# get p,q
-for s in x_test_log:
-    if len(s)>=5:
-        s = np.array(s)
-        fig1 = plt.figure(figsize=(12, 8))
-        ax1 = fig1.add_subplot(211)
-        fig1 = sm.graphics.tsa.plot_acf(s, lags=4, ax=ax1)
-        ax2 = fig1.add_subplot(212)
-        fig1 = sm.graphics.tsa.plot_pacf(s, lags=4, ax=ax2)
-        fig1.show()
-exit()
-
-
-(p, q) =(sm.tsa.arma_order_select_ic(s,max_ar=3,max_ma=3,ic='aic')['aic_min_order'])
-p,d,q = (1,3,2)
-arma_mod = ARMA(s,(p,d,q)).fit(disp=-1,method='mle')
-summary = (arma_mod.summary2(alpha=.05, float_format="%.8f"))
-print(summary)
-
-arma_model = sm.tsa.ARMA(s,(0,1)).fit(disp=-1,maxiter=100)
-predict_data = arma_model.predict(start=str(1979), end=str(2010+3), dynamic = False)
-
+pdq = (1,1,2)
+# arma_mod = ARMA(s,(p,d,q)).fit(disp=-1,method='mle')
+# # summary = (arma_mod.summary2(alpha=.05, float_format="%.8f"))
+# # print(summary)
+# arma_model = sm.tsa.ARMA(s,(0,1)).fit(disp=-1,maxiter=100)
+# predict_data = arma_model.predict(start=str(1979), end=str(2010+3), dynamic = False)
+for s in x_test_stationary:
+    arma_model = sm.tsa.ARMA(s,(0,1)).fit(disp=-1,maxiter=100)
+    predict_data = arma_model.predict(start=0, end=len(s), dynamic = False)
+    print(s)
+    print(predict_data)
 exit()
 
 # 移动平均图
