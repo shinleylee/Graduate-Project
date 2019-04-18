@@ -14,7 +14,7 @@ TRAIN_FILE = 'train.csv'
 TEST_FILE = 'test.csv'
 MAX_MAXWIND_SEQ_LEN = -1
 MIN_LEN = 8
-STATIONARIZATION='logdiff'  # equal,diff1,diff2,diff3,diff4,log,sqrt,logdiff
+STATIONARIZATION='diff3'  # equal,diff1,diff2,diff3,diff4,log,sqrt,logdiff
 
 
 # read dataset to dataframe
@@ -239,61 +239,95 @@ print('-------------------------------------------------------------------------
 
 # stationarization and show the curves
 x_test_stationary = []
-for i in x_test:
+x_test_origin = []
+x_test_diff1 = []
+x_test_diff2 = []
+x_test_diff3 = []
+y_test_stationary = []
+for i in range(0,len(x_test)):
     # equal,diff1,diff2,diff3,diff4,log,sqrt,logdiff
     if STATIONARIZATION=='equal':
-        row_stationary = pd.Series(i)
+        row_stationary = pd.Series(x_test[i])
         row_stationary.plot()
-        x_test_stationary.append(row_stationary.tolist())
+        new_row = row_stationary.tolist()
+        if new_row != []:
+            x_test_origin.append(x_test[i])
+            x_test_stationary.append(new_row)
+            y_test_stationary.append(y_test[i])
     if STATIONARIZATION=='diff1':
-        row_stationary = pd.Series(i).diff(1)
+        row_stationary = pd.Series(x_test[i]).diff(1)
         row_stationary.plot()
-        x_test_stationary.append(row_stationary.tolist()[1:])
+        new_row = row_stationary.tolist()[1:]
+        if new_row != []:
+            x_test_origin.append(x_test[i])
+            x_test_stationary.append(new_row)
+            y_test_stationary.append(y_test[i])
     if STATIONARIZATION=='diff2':
-        row_stationary = pd.Series(i).diff(1)
+        row_stationary = pd.Series(x_test[i]).diff(1)
         row_stationary2 = pd.Series(row_stationary).diff(1)
         row_stationary2.plot()
-        x_test_stationary.append(row_stationary2.tolist()[2:])
+        new_row = row_stationary2.tolist()[2:]
+        if new_row != []:
+            x_test_origin.append(x_test[i])
+            x_test_stationary.append(new_row)
+            y_test_stationary.append(y_test[i])
     if STATIONARIZATION=='diff3':
-        row_stationary = pd.Series(i).diff(1)
-        row_stationary2 = pd.Series(row_stationary).diff(1)
-        row_stationary3 = pd.Series(row_stationary2).diff(1)
+        row_stationary = pd.Series(x_test[i]).diff(1)
+        row_stationary2 = row_stationary.diff(1)
+        row_stationary3 = row_stationary2.diff(1)
         row_stationary3.plot()
+        x_test_diff1.append(row_stationary.tolist()[1:])
+        x_test_diff2.append(row_stationary2.tolist()[2:])
+        x_test_diff3.append(row_stationary3.tolist()[3:])
         x_test_stationary.append(row_stationary3.tolist()[3:])
+        y_test_stationary.append(y_test[i])
     if STATIONARIZATION=='diff4':
-        row_stationary = pd.Series(i).diff(1)
+        row_stationary = pd.Series(x_test[i]).diff(1)
         row_stationary2 = pd.Series(row_stationary).diff(1)
         row_stationary3 = pd.Series(row_stationary2).diff(1)
         row_stationary4 = pd.Series(row_stationary3).diff(1)
         row_stationary4.plot()
-        x_test_stationary.append(row_stationary4.tolist()[4:])
+        new_row = row_stationary4.tolist()[4:]
+        if new_row != []:
+            x_test_origin.append(x_test[i])
+            x_test_stationary.append(new_row)
+            y_test_stationary.append(y_test[i])
     if STATIONARIZATION=='sqrt':
         row_stationary = []
-        for j in i:
+        for j in x_test[i]:
             row_stationary.append(np.sqrt(j))
         if row_stationary != []:
+            x_test_origin.append(x_test[i])
             x_test_stationary.append(row_stationary)
             pd.Series(row_stationary).plot()
+            y_test_stationary.append(y_test[i])
     if STATIONARIZATION=='log':
         row_stationary = []
-        for j in i:
+        for j in x_test[i]:
             row_stationary.append(np.log(j))
         if row_stationary != []:
+            x_test_origin.append(x_test[i])
             x_test_stationary.append(row_stationary)
             pd.Series(row_stationary).plot()
+            y_test_stationary.append(y_test[i])
     if STATIONARIZATION=='logdiff':
         row_stationary = []
-        for j in i:
+        for j in x_test[i]:
             row_stationary.append(np.log(j))
-        if row_stationary != []:
-            row_stationary = pd.Series(row_stationary)
-            row_stationary.plot()
-            x_test_stationary.append(row_stationary.tolist())
+        row_stationary = pd.Series(row_stationary).diff(1)
+        row_stationary.plot()
+        new_row = row_stationary.tolist()[1:]
+        if new_row != []:
+            x_test_origin.append(x_test[i])
+            x_test_stationary.append(new_row)
+            y_test_stationary.append(y_test[i])
 plt.show()
 
 
 # ADF
 counts = 0
+x_test_adf = []
+y_test_adf = []
 for s in x_test_stationary:
     s = pd.DataFrame(s)
     s = s.dropna()
@@ -312,18 +346,56 @@ for s in x_test_stationary:
         # print(output)
 print('stationary sequence counts = ',counts)
 
+
 pdq = (1,1,2)
 # arma_mod = ARMA(s,(p,d,q)).fit(disp=-1,method='mle')
 # # summary = (arma_mod.summary2(alpha=.05, float_format="%.8f"))
 # # print(summary)
 # arma_model = sm.tsa.ARMA(s,(0,1)).fit(disp=-1,maxiter=100)
 # predict_data = arma_model.predict(start=str(1979), end=str(2010+3), dynamic = False)
-for s in x_test_stationary:
-    arma_model = sm.tsa.ARMA(s,(0,1)).fit(disp=-1,maxiter=100)
-    predict_data = arma_model.predict(start=0, end=len(s), dynamic = False)
-    print(s)
-    print(predict_data)
+prediction = []
+for i in range(0,len(x_test_stationary)):
+    arma_model = ARIMA(x_test_stationary[i],pdq).fit(disp=-1,maxiter=100)
+    predict_data = arma_model.predict(start=3, end=len(x_test_stationary[i]), dynamic = False)
+    prediction.append(x_test_origin[-1]+x_test_diff1[-1]+x_test_diff2[-1]+predict_data[-1])
+print(y_test_stationary)
+print(prediction)
 exit()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 # 移动平均图
 def draw_trend(timeseries, size):
