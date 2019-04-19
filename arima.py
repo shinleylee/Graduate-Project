@@ -6,7 +6,7 @@ import statsmodels.api as sm
 import matplotlib.pyplot as plt
 from statsmodels.tsa.seasonal import seasonal_decompose
 from statsmodels.graphics.tsaplots import acf,pacf,plot_acf,plot_pacf
-from statsmodels.tsa.arima_model import ARIMA
+from statsmodels.tsa.arima_model import ARMA,ARIMA
 
 
 DATA_PATH = './dataset/'
@@ -15,6 +15,8 @@ TEST_FILE = 'test.csv'
 MAX_MAXWIND_SEQ_LEN = -1
 MIN_LEN = 8
 STATIONARIZATION='diff3'  # equal,diff1,diff2,diff3,diff4,log,sqrt,logdiff
+p = 0
+q = 0
 
 
 # read dataset to dataframe
@@ -276,6 +278,7 @@ for i in range(0,len(x_test)):
         row_stationary2 = row_stationary.diff(1)
         row_stationary3 = row_stationary2.diff(1)
         row_stationary3.plot()
+        x_test_origin.append(x_test[i])
         x_test_diff1.append(row_stationary.tolist()[1:])
         x_test_diff2.append(row_stationary2.tolist()[2:])
         x_test_diff3.append(row_stationary3.tolist()[3:])
@@ -321,18 +324,16 @@ for i in range(0,len(x_test)):
             x_test_origin.append(x_test[i])
             x_test_stationary.append(new_row)
             y_test_stationary.append(y_test[i])
-plt.show()
-
+# plt.show()
 
 # ADF
-counts = 0
+# in this part, ADF filter x_test_stationary to x_test_adf, here use x_test_stationary_idx to remember the index of the sequence pass ADF test in x_test_statioary
+print('ADF filter:')
+x_test_stationary_idx = []
 x_test_adf = []
 y_test_adf = []
-for s in x_test_stationary:
-    s = pd.DataFrame(s)
-    s = s.dropna()
-    s = s[0].tolist()
-    t=sm.tsa.stattools.adfuller(s, maxlag=1)
+for i in range(0,len(x_test_stationary)):
+    t=sm.tsa.stattools.adfuller(x_test_stationary[i], maxlag=1)
     output=pd.DataFrame(index=['Test Statistic Value', "p-value", "Lags Used", "Number of Observations Used","Critical Value(1%)","Critical Value(5%)","Critical Value(10%)"],columns=['value'])
     output['value']['Test Statistic Value'] = t[0]
     output['value']['p-value'] = t[1]
@@ -341,182 +342,32 @@ for s in x_test_stationary:
     output['value']['Critical Value(1%)'] = t[4]['1%']
     output['value']['Critical Value(5%)'] = t[4]['5%']
     output['value']['Critical Value(10%)'] = t[4]['10%']
+    # print(output)
     if t[0] <= t[4]['5%']:
-        counts = counts+1
-        # print(output)
-print('stationary sequence counts = ',counts)
+        x_test_stationary_idx.append(i)
+        x_test_adf.append(x_test_stationary[i])
+        y_test_adf.append(y_test_stationary[i])
+assert len(x_test_adf)==len(y_test_adf)
+print('stationary sequence counts = ',len(x_test_adf))
 
 
-pdq = (1,1,2)
-# arma_mod = ARMA(s,(p,d,q)).fit(disp=-1,method='mle')
-# # summary = (arma_mod.summary2(alpha=.05, float_format="%.8f"))
-# # print(summary)
-# arma_model = sm.tsa.ARMA(s,(0,1)).fit(disp=-1,maxiter=100)
-# predict_data = arma_model.predict(start=str(1979), end=str(2010+3), dynamic = False)
 prediction = []
-for i in range(0,len(x_test_stationary)):
-    arma_model = ARIMA(x_test_stationary[i],pdq).fit(disp=-1,maxiter=100)
-    predict_data = arma_model.predict(start=3, end=len(x_test_stationary[i]), dynamic = False)
-    prediction.append(x_test_origin[-1]+x_test_diff1[-1]+x_test_diff2[-1]+predict_data[-1])
-print(y_test_stationary)
-print(prediction)
+for i in range(0,len(x_test_adf)):
+    arma_model = ARMA(x_test_adf[i],(p,q)).fit(disp=-1,maxiter=100)
+    predict_data = arma_model.predict(start=0, end=len(x_test_adf[i]), dynamic=False)
+    idx = x_test_stationary_idx[i]  # the index of this sequence in x_test_stationary
+    assert x_test_adf[i]==x_test_stationary[idx]
+    if STATIONARIZATION=='diff3':
+        prediction.append(x_test_origin[idx][-1]+x_test_diff1[idx][-1]+x_test_diff2[idx][-1]+predict_data[-1])
+print('Ground Truth:',y_test_adf)
+print('Prediction:',[round(i,1) for i in prediction])
+
+# calculate RMSE
+score = 0
+n = len(y_test_adf)
+for i in range(0,n):
+    score = score + np.square(prediction[i]-y_test_adf[i])
+score = np.sqrt(score/n)
+print('RMSE=',score)
+
 exit()
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# 移动平均图
-def draw_trend(timeseries, size):
-    f = plt.figure(facecolor='white')
-    # 对size个数据进行移动平均
-    rol_mean = timeseries.rolling(window=size).mean()
-    # 对size个数据移动平均的方差
-    rol_std = timeseries.rolling(window=size).std()
-    timeseries.plot(color='blue', label='Original')
-    rol_mean.plot(color='red', label='Rolling Mean')
-    rol_std.plot(color='black', label='Rolling standard deviation')
-    plt.legend(loc='best')
-    plt.title('Rolling Mean & Standard Deviation')
-    plt.show()
-
-def draw_ts(timeseries):
-    f = plt.figure(facecolor='white')
-    timeseries.plot(color='blue')
-    plt.show()
-
-# Dickey-Fuller test:
-def teststationarity(ts):
-    dftest = sm.tsa.stattools.adfuller(ts)
-    # 对上述函数求得的值进行语义描述
-    dfoutput = pd.Series(dftest[0:4], index=['Test Statistic', 'p-value', '#Lags Used', 'Number of Observations Used'])
-    for key, value in dftest[4].items():
-        dfoutput['Critical Value (%s)' % key] = value
-    return dfoutput
-
-def decompose(timeseries):
-    # 返回包含三个部分 trend（趋势部分） ， seasonal（季节性部分） 和residual (残留部分)
-    decomposition = seasonal_decompose(timeseries, freq=4)
-    trend = decomposition.trend
-    seasonal = decomposition.seasonal
-    residual = decomposition.resid
-    plt.subplot(411)
-    plt.plot(x_log, label='Original')
-    plt.legend(loc='best')
-    plt.subplot(412)
-    plt.plot(trend, label='Trend')
-    plt.legend(loc='best')
-    plt.subplot(413)
-    plt.plot(seasonal, label='Seasonality')
-    plt.legend(loc='best')
-    plt.subplot(414)
-    plt.plot(residual, label='Residuals')
-    plt.legend(loc='best')
-    plt.tight_layout()
-    plt.show()
-    return trend, seasonal, residual
-
-from statsmodels.graphics.tsaplots import plot_acf, plot_pacf
-def draw_acf_pacf(ts, lags):
-    f = plt.figure(facecolor='white')
-    ax1 = f.add_subplot(211)
-    plot_acf(ts, ax=ax1, lags=lags)
-    ax2 = f.add_subplot(212)
-    plot_pacf(ts, ax=ax2, lags=lags)
-    plt.subplots_adjust(hspace=0.5)
-    plt.show()
-
-
-
-
-
-
-for x in x_test:
-    x_log = np.log(pd.Series(x))
-    if x_log.shape[0] >= 12:
-    #     draw_trend(x_log, 4)
-    #     draw_ts(x_log)
-    #     teststationarity(x_log)
-    #
-        x_log.index = pd.to_datetime(x_log.index)
-    #     print(x_log)
-    #     trend, seasonal, residual = decompose(x_log)
-    #     residual.dropna(inplace=True)
-    #     draw_trend(residual, 12)
-    #     teststationarity(residual)
-
-        rol_mean = x_log.rolling(window=4).mean()
-        rol_mean.dropna(inplace=True)
-        x_diff_1 = rol_mean.diff(1)
-        x_diff_1.dropna(inplace=True)
-        # teststationarity(x_diff_1)
-
-        x_diff_2 = x_diff_1.diff(1)
-        x_diff_2.dropna(inplace=True)
-        # teststationarity(ts_diff_2)
-
-        # get the coef by observing the graph
-        # draw_acf_pacf(x_diff_2, 4)
-
-        # make prediction
-        from statsmodels.tsa.arima_model import ARIMA
-        model = ARIMA(x_log, order=(1, 1, 1))
-        result_arima = model.fit(disp=-1, method='css')
-
-        # recover the data
-        predict_ts = result_arima.predict()
-        # 一阶差分还原
-        diff_shift_ts = x_diff_1.shift(1)
-        diff_recover_1 = predict_ts.add(diff_shift_ts)
-        # 再次一阶差分还原
-        rol_shift_ts = rol_mean.shift(1)
-        diff_recover = diff_recover_1.add(rol_shift_ts)
-        # 移动平均还原
-        rol_sum = x_log.rolling(window=11).sum()
-        rol_recover = diff_recover * 12 - rol_sum.shift(1)
-        # 对数还原
-        log_recover = np.exp(rol_recover)
-        log_recover.dropna(inplace=True)
-
-        # mse
-        x = x_log[log_recover.index]
-        # 过滤没有预测的记录
-        plt.figure(facecolor='white')
-        log_recover.plot(color='blue', label='Predict')
-        x.plot(color='red', label='Original')
-        plt.legend(loc='best')
-        plt.title('RMSE: %.4f'% np.sqrt(sum((log_recover-x)**2)/x.size))
-        plt.show()
-
-print('end')
