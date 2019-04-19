@@ -2,6 +2,7 @@ import warnings
 import itertools
 import pandas as pd
 import numpy as np
+import math
 import statsmodels.api as sm
 import matplotlib.pyplot as plt
 from statsmodels.tsa.seasonal import seasonal_decompose
@@ -15,8 +16,9 @@ TEST_FILE = 'test.csv'
 MAX_MAXWIND_SEQ_LEN = -1
 MIN_LEN = 8
 STATIONARIZATION='diff3'  # equal,diff1,diff2,diff3,diff4,log,sqrt,logdiff
-p = 0
-q = 0
+p = 4
+d = 3
+q = 4
 
 
 # read dataset to dataframe
@@ -246,9 +248,9 @@ x_test_diff1 = []
 x_test_diff2 = []
 x_test_diff3 = []
 y_test_stationary = []
-for i in range(0,len(x_test)):
+for i in range(0, len(x_test)):
     # equal,diff1,diff2,diff3,diff4,log,sqrt,logdiff
-    if STATIONARIZATION=='equal':
+    if STATIONARIZATION == 'equal':
         row_stationary = pd.Series(x_test[i])
         row_stationary.plot()
         new_row = row_stationary.tolist()
@@ -256,7 +258,7 @@ for i in range(0,len(x_test)):
             x_test_origin.append(x_test[i])
             x_test_stationary.append(new_row)
             y_test_stationary.append(y_test[i])
-    if STATIONARIZATION=='diff1':
+    if STATIONARIZATION == 'diff1':
         row_stationary = pd.Series(x_test[i]).diff(1)
         row_stationary.plot()
         new_row = row_stationary.tolist()[1:]
@@ -264,7 +266,7 @@ for i in range(0,len(x_test)):
             x_test_origin.append(x_test[i])
             x_test_stationary.append(new_row)
             y_test_stationary.append(y_test[i])
-    if STATIONARIZATION=='diff2':
+    if STATIONARIZATION == 'diff2':
         row_stationary = pd.Series(x_test[i]).diff(1)
         row_stationary2 = pd.Series(row_stationary).diff(1)
         row_stationary2.plot()
@@ -273,7 +275,7 @@ for i in range(0,len(x_test)):
             x_test_origin.append(x_test[i])
             x_test_stationary.append(new_row)
             y_test_stationary.append(y_test[i])
-    if STATIONARIZATION=='diff3':
+    if STATIONARIZATION == 'diff3':
         row_stationary = pd.Series(x_test[i]).diff(1)
         row_stationary2 = row_stationary.diff(1)
         row_stationary3 = row_stationary2.diff(1)
@@ -284,7 +286,7 @@ for i in range(0,len(x_test)):
         x_test_diff3.append(row_stationary3.tolist()[3:])
         x_test_stationary.append(row_stationary3.tolist()[3:])
         y_test_stationary.append(y_test[i])
-    if STATIONARIZATION=='diff4':
+    if STATIONARIZATION == 'diff4':
         row_stationary = pd.Series(x_test[i]).diff(1)
         row_stationary2 = pd.Series(row_stationary).diff(1)
         row_stationary3 = pd.Series(row_stationary2).diff(1)
@@ -295,7 +297,7 @@ for i in range(0,len(x_test)):
             x_test_origin.append(x_test[i])
             x_test_stationary.append(new_row)
             y_test_stationary.append(y_test[i])
-    if STATIONARIZATION=='sqrt':
+    if STATIONARIZATION == 'sqrt':
         row_stationary = []
         for j in x_test[i]:
             row_stationary.append(np.sqrt(j))
@@ -304,7 +306,7 @@ for i in range(0,len(x_test)):
             x_test_stationary.append(row_stationary)
             pd.Series(row_stationary).plot()
             y_test_stationary.append(y_test[i])
-    if STATIONARIZATION=='log':
+    if STATIONARIZATION == 'log':
         row_stationary = []
         for j in x_test[i]:
             row_stationary.append(np.log(j))
@@ -313,7 +315,7 @@ for i in range(0,len(x_test)):
             x_test_stationary.append(row_stationary)
             pd.Series(row_stationary).plot()
             y_test_stationary.append(y_test[i])
-    if STATIONARIZATION=='logdiff':
+    if STATIONARIZATION == 'logdiff':
         row_stationary = []
         for j in x_test[i]:
             row_stationary.append(np.log(j))
@@ -326,48 +328,82 @@ for i in range(0,len(x_test)):
             y_test_stationary.append(y_test[i])
 # plt.show()
 
-# ADF
-# in this part, ADF filter x_test_stationary to x_test_adf, here use x_test_stationary_idx to remember the index of the sequence pass ADF test in x_test_statioary
-print('ADF filter:')
-x_test_stationary_idx = []
-x_test_adf = []
-y_test_adf = []
-for i in range(0,len(x_test_stationary)):
-    t=sm.tsa.stattools.adfuller(x_test_stationary[i], maxlag=1)
-    output=pd.DataFrame(index=['Test Statistic Value', "p-value", "Lags Used", "Number of Observations Used","Critical Value(1%)","Critical Value(5%)","Critical Value(10%)"],columns=['value'])
-    output['value']['Test Statistic Value'] = t[0]
-    output['value']['p-value'] = t[1]
-    output['value']['Lags Used'] = t[2]
-    output['value']['Number of Observations Used'] = t[3]
-    output['value']['Critical Value(1%)'] = t[4]['1%']
-    output['value']['Critical Value(5%)'] = t[4]['5%']
-    output['value']['Critical Value(10%)'] = t[4]['10%']
-    # print(output)
-    if t[0] <= t[4]['5%']:
-        x_test_stationary_idx.append(i)
-        x_test_adf.append(x_test_stationary[i])
-        y_test_adf.append(y_test_stationary[i])
-assert len(x_test_adf)==len(y_test_adf)
-print('stationary sequence counts = ',len(x_test_adf))
+if d==3:
+    # ADF
+    # in this part, ADF filter x_test_stationary to x_test_adf, here use x_test_stationary_idx to remember the index of the sequence pass ADF test in x_test_statioary
+    print('ADF filter:')
+    x_test_stationary_idx = []
+    x_test_adf = []
+    y_test_adf = []
+    for i in range(0, len(x_test_stationary)):
+        t = sm.tsa.stattools.adfuller(x_test_stationary[i], maxlag=1)
+        output = pd.DataFrame(
+            index=['Test Statistic Value', "p-value", "Lags Used", "Number of Observations Used", "Critical Value(1%)",
+                   "Critical Value(5%)", "Critical Value(10%)"], columns=['value'])
+        output['value']['Test Statistic Value'] = t[0]
+        output['value']['p-value'] = t[1]
+        output['value']['Lags Used'] = t[2]
+        output['value']['Number of Observations Used'] = t[3]
+        output['value']['Critical Value(1%)'] = t[4]['1%']
+        output['value']['Critical Value(5%)'] = t[4]['5%']
+        output['value']['Critical Value(10%)'] = t[4]['10%']
+        # print(output)
+        if t[0] <= t[4]['5%']:
+            x_test_stationary_idx.append(i)
+            x_test_adf.append(x_test_stationary[i])
+            y_test_adf.append(y_test_stationary[i])
+    assert len(x_test_adf) == len(y_test_adf)
+    print('stationary sequence counts = ', len(x_test_adf))
 
+    #ARMA
+    prediction = []
+    for i in range(0,len(x_test_adf)):
+        # try:
+            arma_model = ARMA(x_test_adf[i],(p,q)).fit(disp=-1,maxiter=100)#,start_ar_lags=2)
+            predict_data = arma_model.predict(start=0, end=len(x_test_adf[i]), dynamic=False)
+            idx = x_test_stationary_idx[i]  # the index of this sequence in x_test_stationary
+            assert x_test_adf[i] == x_test_stationary[idx]
+            if STATIONARIZATION == 'diff3':
+                prediction.append(
+                    x_test_origin[idx][-1] + x_test_diff1[idx][-1] + x_test_diff2[idx][-1] + predict_data[-1])
+        # except:
+        #     prediction.append(float('nan'))
+        #     pass
+    print('Ground Truth:',y_test_adf)
+    print('Prediction:',[round(i,1) for i in prediction])
+    # calculate RMSE
+    score = 0
+    n = len(y_test_adf)
+    for i in range(0,n):
+        if math.isnan(prediction[i]):
+            n=n-1
+        else:
+            score = score + np.square(prediction[i]-y_test_adf[i])
+    score = np.sqrt(score/n)
+    print('RMSE=',score)
 
-prediction = []
-for i in range(0,len(x_test_adf)):
-    arma_model = ARMA(x_test_adf[i],(p,q)).fit(disp=-1,maxiter=100)
-    predict_data = arma_model.predict(start=0, end=len(x_test_adf[i]), dynamic=False)
-    idx = x_test_stationary_idx[i]  # the index of this sequence in x_test_stationary
-    assert x_test_adf[i]==x_test_stationary[idx]
-    if STATIONARIZATION=='diff3':
-        prediction.append(x_test_origin[idx][-1]+x_test_diff1[idx][-1]+x_test_diff2[idx][-1]+predict_data[-1])
-print('Ground Truth:',y_test_adf)
-print('Prediction:',[round(i,1) for i in prediction])
-
-# calculate RMSE
-score = 0
-n = len(y_test_adf)
-for i in range(0,n):
-    score = score + np.square(prediction[i]-y_test_adf[i])
-score = np.sqrt(score/n)
-print('RMSE=',score)
+if d<=2:
+    # ARIMA
+    prediction = []
+    for i in range(0,len(x_test)):
+        arima_model = ARIMA(x_test[i],(p,d,q)).fit(disp=-1,maxiter=100)#,start_ar_lags=2)
+        if d==0:
+            predict_data = arima_model.predict(start=0, end=len(x_test[i]), dynamic=False)
+            prediction.append(predict_data[-1])
+        if d==1:
+            predict_data = arima_model.predict(start=1, end=len(x_test[i]), dynamic=False)
+            prediction.append(x_test[i][-1]+predict_data[-1])
+        if d==2:
+            predict_data = arima_model.predict(start=2, end=len(x_test[i]), dynamic=False)
+            prediction.append(x_test[i][-1]+x_test_diff1[i][-1]+predict_data[-1])
+    print('Ground Truth:',y_test)
+    print('Prediction  :',[round(i,1) for i in prediction])
+    # calculate RMSE
+    score = 0
+    n = len(y_test)
+    for i in range(0,n):
+        score = score + np.square(prediction[i]-y_test[i])
+    score = np.sqrt(score/n)
+    print('RMSE=',score)
 
 exit()
