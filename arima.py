@@ -14,7 +14,7 @@ DATA_PATH = './dataset/'
 TRAIN_FILE = 'train.csv'
 TEST_FILE = 'test.csv'
 MAX_MAXWIND_SEQ_LEN = -1
-MIN_LEN = 8
+MIN_LEN = 0
 STATIONARIZATION='diff3'  # equal,diff1,diff2,diff3,diff4,log,sqrt,logdiff
 p = 4
 d = 3
@@ -328,7 +328,7 @@ for i in range(0, len(x_test)):
             y_test_stationary.append(y_test[i])
 # plt.show()
 
-if d==3:
+if d>=3:
     # ADF
     # in this part, ADF filter x_test_stationary to x_test_adf, here use x_test_stationary_idx to remember the index of the sequence pass ADF test in x_test_statioary
     print('ADF filter:')
@@ -336,29 +336,32 @@ if d==3:
     x_test_adf = []
     y_test_adf = []
     for i in range(0, len(x_test_stationary)):
-        t = sm.tsa.stattools.adfuller(x_test_stationary[i], maxlag=1)
-        output = pd.DataFrame(
-            index=['Test Statistic Value', "p-value", "Lags Used", "Number of Observations Used", "Critical Value(1%)",
-                   "Critical Value(5%)", "Critical Value(10%)"], columns=['value'])
-        output['value']['Test Statistic Value'] = t[0]
-        output['value']['p-value'] = t[1]
-        output['value']['Lags Used'] = t[2]
-        output['value']['Number of Observations Used'] = t[3]
-        output['value']['Critical Value(1%)'] = t[4]['1%']
-        output['value']['Critical Value(5%)'] = t[4]['5%']
-        output['value']['Critical Value(10%)'] = t[4]['10%']
-        # print(output)
-        if t[0] <= t[4]['5%']:
-            x_test_stationary_idx.append(i)
-            x_test_adf.append(x_test_stationary[i])
-            y_test_adf.append(y_test_stationary[i])
+        try:
+            t = sm.tsa.stattools.adfuller(x_test_stationary[i], maxlag=1)
+            output = pd.DataFrame(
+                index=['Test Statistic Value', "p-value", "Lags Used", "Number of Observations Used", "Critical Value(1%)",
+                       "Critical Value(5%)", "Critical Value(10%)"], columns=['value'])
+            output['value']['Test Statistic Value'] = t[0]
+            output['value']['p-value'] = t[1]
+            output['value']['Lags Used'] = t[2]
+            output['value']['Number of Observations Used'] = t[3]
+            output['value']['Critical Value(1%)'] = t[4]['1%']
+            output['value']['Critical Value(5%)'] = t[4]['5%']
+            output['value']['Critical Value(10%)'] = t[4]['10%']
+            # print(output)
+            if t[0] <= t[4]['5%']:
+                x_test_stationary_idx.append(i)
+                x_test_adf.append(x_test_stationary[i])
+                y_test_adf.append(y_test_stationary[i])
+        except:
+            pass
     assert len(x_test_adf) == len(y_test_adf)
     print('stationary sequence counts = ', len(x_test_adf))
 
     #ARMA
     prediction = []
     for i in range(0,len(x_test_adf)):
-        # try:
+        try:
             arma_model = ARMA(x_test_adf[i],(p,q)).fit(disp=-1,maxiter=100)#,start_ar_lags=2)
             predict_data = arma_model.predict(start=0, end=len(x_test_adf[i]), dynamic=False)
             idx = x_test_stationary_idx[i]  # the index of this sequence in x_test_stationary
@@ -366,9 +369,8 @@ if d==3:
             if STATIONARIZATION == 'diff3':
                 prediction.append(
                     x_test_origin[idx][-1] + x_test_diff1[idx][-1] + x_test_diff2[idx][-1] + predict_data[-1])
-        # except:
-        #     prediction.append(float('nan'))
-        #     pass
+        except:
+            prediction.append(float('nan'))
     print('Ground Truth:',y_test_adf)
     print('Prediction:',[round(i,1) for i in prediction])
     # calculate RMSE
@@ -380,30 +382,39 @@ if d==3:
         else:
             score = score + np.square(prediction[i]-y_test_adf[i])
     score = np.sqrt(score/n)
+    print('Calculate ',n,' sequences.')
     print('RMSE=',score)
 
-if d<=2:
+if d<3:
     # ARIMA
     prediction = []
     for i in range(0,len(x_test)):
-        arima_model = ARIMA(x_test[i],(p,d,q)).fit(disp=-1,maxiter=100)#,start_ar_lags=2)
-        if d==0:
-            predict_data = arima_model.predict(start=0, end=len(x_test[i]), dynamic=False)
-            prediction.append(predict_data[-1])
-        if d==1:
-            predict_data = arima_model.predict(start=1, end=len(x_test[i]), dynamic=False)
-            prediction.append(x_test[i][-1]+predict_data[-1])
-        if d==2:
-            predict_data = arima_model.predict(start=2, end=len(x_test[i]), dynamic=False)
-            prediction.append(x_test[i][-1]+x_test_diff1[i][-1]+predict_data[-1])
+        try:
+            arima_model = ARIMA(x_test[i],(p,d,q)).fit(disp=-1,maxiter=100)#,start_ar_lags=2)
+            if d==0:
+                predict_data = arima_model.predict(start=0, end=len(x_test[i]), dynamic=False)
+                prediction.append(predict_data[-1])
+            if d==1:
+                predict_data = arima_model.predict(start=1, end=len(x_test[i]), dynamic=False)
+                prediction.append(x_test[i][-1]+predict_data[-1])
+            if d==2:
+                predict_data = arima_model.predict(start=2, end=len(x_test[i]), dynamic=False)
+                prediction.append(x_test[i][-1]+x_test_diff1[i][-1]+predict_data[-1])
+        except:
+            prediction.append(float('nan'))
+    assert len(y_test)==len(prediction)
     print('Ground Truth:',y_test)
     print('Prediction  :',[round(i,1) for i in prediction])
     # calculate RMSE
     score = 0
     n = len(y_test)
     for i in range(0,n):
-        score = score + np.square(prediction[i]-y_test[i])
+        if math.isnan(prediction[i]):
+            n=n-1
+        else:
+            score = score + np.square(prediction[i]-y_test[i])
     score = np.sqrt(score/n)
+    print('Calculate ',n,' sequences.')
     print('RMSE=',score)
 
 exit()
