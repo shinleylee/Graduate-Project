@@ -231,3 +231,14 @@ for i in range(0,n):
 score = np.sqrt(score/n)
 print('Calculate ',n,' sequences.')
 print('RMSE=',score)
+
+coef = lr.coef_
+print('LR coef:')
+print(coef)
+
+lable_list = [i for i in range(-120,0)]
+value_list = coef
+rects1 = plt.bar(lable_list, height=coef)
+plt.ylabel('特征（时间步）')
+plt.xlabel("贡献（权重）")
+plt.show()

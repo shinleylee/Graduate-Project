@@ -122,7 +122,7 @@ def data2tensor(dataset, MAX_MAXWIND_SEQ_LEN):
     # fill 0s in x to reach length of 120 (which is MAX_MAXWIND_SEQ_LEN) for lstm
     for item in x:
         while len(item) < MAX_MAXWIND_SEQ_LEN:
-            item.append(0)
+            item.insert(0,0)
 
     return x, x_aux_month, x_aux_time, x_aux_lalo, x_aux_len, x_aux_stat, y
 
