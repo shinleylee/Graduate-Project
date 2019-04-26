@@ -141,7 +141,7 @@ def data2tensor(dataset, MAX_MAXWIND_SEQ_LEN):
     # fill 0s in x to reach length of 120 (which is MAX_MAXWIND_SEQ_LEN) for lstm
     for item in x:
         while len(item) < MAX_MAXWIND_SEQ_LEN:
-            item.append(0)
+            item.insert(0,0)
 
     return x, x_aux_month, x_aux_time, x_aux_lalo, y
 
@@ -202,12 +202,12 @@ if np.max(x_test) > max_maxWind:
 #     plt.title('All curves')
 #     plt.show()
 
-x_train = np.concatenate([x_train, x_aux_month_train, x_aux_time_train, x_aux_lalo_train], axis=1)
-x_test = np.concatenate([x_test, x_aux_month_test, x_aux_time_test, x_aux_lalo_test], axis=1)
+# x_train = np.concatenate([x_train, x_aux_month_train, x_aux_time_train, x_aux_lalo_train], axis=1)
+# x_test = np.concatenate([x_test, x_aux_month_test, x_aux_time_test, x_aux_lalo_test], axis=1)
 
-min_max_scaler = MinMaxScaler(feature_range=(0,1))  # normalization
-x = np.vstack((x_train, x_test))
-x = min_max_scaler.fit_transform(x)
+# min_max_scaler = MinMaxScaler(feature_range=(0,1))  # normalization
+# x = np.vstack((x_train, x_test))
+# x = min_max_scaler.fit_transform(x)
 # split_line = x_aux_feat_train.shape[0]
 # x_aux_feat_train = x_aux_feat_all[:split_line][:]
 # x_aux_feat_test = x_aux_feat_all[split_line:][:]
@@ -218,12 +218,16 @@ lr = linear_model.LinearRegression()
 lr.fit(x_train, y_train)
 
 # make predictions
-testPredict = lr.predict(x_test)
-testPredict = np.reshape(testPredict,(testPredict.shape[0]))
+prediction = lr.predict(x_test)
+prediction = np.reshape(prediction,(prediction.shape[0]))
 print(y_test)
-print(testPredict)
+print(prediction)
 
-testScore = (mean_squared_error(y_test, testPredict)) ** 0.5
-# testScore = testScore * max_maxWind
-print('Test Score:')
-print(testScore)
+# calculate RMSE
+score = 0
+n = len(y_test)
+for i in range(0,n):
+    score = score + np.square(prediction[i]-y_test[i])
+score = np.sqrt(score/n)
+print('Calculate ',n,' sequences.')
+print('RMSE=',score)
