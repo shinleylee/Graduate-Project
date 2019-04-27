@@ -16,6 +16,7 @@ TEST_FILE = 'test.csv'
 MAX_MAXWIND_SEQ_LEN = -1
 MIN_LEN = 0
 STATIONARIZATION='diff3'  # equal,diff1,diff2,diff3,diff4,log,sqrt,logdiff
+HIST_LEN = True
 p = 4
 d = 3
 q = 4
@@ -240,6 +241,19 @@ print('-------------------------------------------------------------------------
 #     plt.show()
 
 ## Prepare the data-------------------------------------------------------------------------------------------------
+
+# get the histogram of series length
+if HIST_LEN == True:
+    len_list = []
+    for item in x_test:
+        len_list.append(len(item))
+    plt.hist(len_list, bins=MAX_MAXWIND_SEQ_LEN,edgecolor='black',align='left')
+    plt.xticks([i for i in range(0,MAX_MAXWIND_SEQ_LEN,5)])
+    plt.yticks([i for i in range(0,50,5)])
+    plt.show()
+
+exit()
+
 
 # stationarization and show the curves
 x_test_stationary = []
