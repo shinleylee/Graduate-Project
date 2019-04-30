@@ -22,7 +22,7 @@ EMBEDDING_DIM = 32
 LOSS_FUNCTION = 'mean_squared_error'
 OPTIMIZER = 'adam'
 BATCH_SIZE = 512
-EPOCHS = 100
+EPOCHS = 20
 
 
 # read dataset to dataframe
@@ -268,7 +268,8 @@ def create_model():
         masked = Masking(mask_value=0)(main_input_lstm)
     else:
         masked = Embedding(input_dim=int(max_maxWind), output_dim=EMBEDDING_DIM, input_length=MAX_MAXWIND_SEQ_LEN, mask_zero=True)(main_input)
-    rnn = Bidirectional(LSTM(1))(masked)
+    # rnn = Bidirectional(LSTM(1))(masked)
+    main_output = GRU(1)(masked)
 
     # att = Dense(MAX_MAXWIND_SEQ_LEN, activation='softmax', name='this_dense')(lstm)
     # a_probs = Multiply()([lstm, att])
@@ -291,7 +292,7 @@ def create_model():
     # x = Dense(3, activation='relu')(a)
 
     # o = Concatenate()([lstm, aux_stat_input])
-    main_output = Dense(1, activation='sigmoid', name='finalDense')(rnn)
+    # main_output = rnn
 
     #下面还有个lstm，故return_sequences设置为True
     # model.add(Masking(mask_value=0, input_shape=(MAX_MAXWIND_SEQ_LEN, 1)))

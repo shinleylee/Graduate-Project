@@ -4,7 +4,7 @@ import math
 import matplotlib.pyplot as plt
 import tensorflow as tf
 import keras as K
-from keras.layers import Input, Masking, Embedding, Flatten, Dense, LSTM, Concatenate, Multiply, Add, Permute, Reshape
+from keras.layers import Input, Masking, Embedding, Flatten, Dense, LSTM, Concatenate, Multiply, Add, Permute, Reshape, Bidirectional, Conv1D, Activation, SpatialDropout1D, GRU
 from keras.utils import to_categorical
 from keras.models import Sequential, Model
 from keras import losses
@@ -17,6 +17,7 @@ DATA_PATH = './dataset/'
 TRAIN_FILE = 'train.csv'
 TEST_FILE = 'test.csv'
 MAX_MAXWIND_SEQ_LEN = -1
+EPOCHS = 20
 
 # read dataset to dataframe
 print('Loading data...')
@@ -186,6 +187,7 @@ item_train_neg = np.array(item_train_neg, dtype='int32')
 rate_train_neg = [0 for x in range(0,user_num_train*(maxWind_li_num-1))]
 
 user_train = np.concatenate((user_train_pos, user_train_neg),axis=0)
+user_train_lstm = user_train.reshape([user_train.shape[0],user_train.shape[1],1])
 item_train = np.concatenate((item_train_pos, item_train_neg),axis=0)
 rate_train = np.array(rate_train_pos + rate_train_neg)
 
@@ -196,6 +198,7 @@ for item in user_test:
     for i in range(0, maxWind_li_num):
         user_test_new.append(item)
 user_test = np.array(user_test_new, dtype='int32')
+user_test_lstm = user_test.reshape([user_test.shape[0],user_test.shape[1],1])
 item_test = []
 for i in range(0,user_num_test):
     for item in maxWind_li_input:
@@ -204,50 +207,115 @@ item_test = np.array(item_test, dtype='int32')
 
 ## Prepare the data-------------------------------------------------------------------------------------------------
 
-
 def create_model():
     #输入数据的shape为(n_samples, timestamps, features)
-    user_input = Input(shape=(MAX_MAXWIND_SEQ_LEN,), dtype='int32', name='user_input')
-    user_em8 = Embedding(input_dim=190, output_dim=8, input_length=MAX_MAXWIND_SEQ_LEN, mask_zero=True)(user_input)
-    user_em8 = LSTM(1)(user_em8)
-    user_em16 = Embedding(input_dim=190, output_dim=16, input_length=MAX_MAXWIND_SEQ_LEN, mask_zero=True)(user_input)
-    user_em16 = LSTM(1)(user_em16)
-    user_em32 = Embedding(input_dim=190, output_dim=32, input_length=MAX_MAXWIND_SEQ_LEN, mask_zero=True)(user_input)
-    user_em32 = LSTM(1)(user_em32)
-    user_em64 = Embedding(input_dim=190, output_dim=64, input_length=MAX_MAXWIND_SEQ_LEN, mask_zero=True)(user_input)
-    user_em64 = LSTM(1)(user_em64)
+    user_input = Input(shape=(MAX_MAXWIND_SEQ_LEN,1), name='user_input')
+
+    prev_x = user_input
+    x = Conv1D(filters=3, kernel_size=4, dilation_rate=1, padding='causal')(prev_x)
+    # x = BatchNormalization()(x)  # TODO should be WeightNorm here.
+    x = Activation('relu')(x)
+    x = SpatialDropout1D(rate=0.5)(x)
+    x = Conv1D(filters=3, kernel_size=4, dilation_rate=1, padding='causal')(x)
+    # x = BatchNormalization()(x)  # TODO should be WeightNorm here.
+    x = Activation('relu')(x)
+    x = SpatialDropout1D(rate=0.5)(x)
+    # 1x1 conv to match the shapes (channel dimension).
+    prev_x = Conv1D(3, 1, padding='same')(prev_x)
+    res_x = Add()([prev_x, x])
+
+    prev_x = res_x
+    x = Conv1D(filters=3, kernel_size=4, dilation_rate=2, padding='causal')(prev_x)
+    # x = BatchNormalization()(x)  # TODO should be WeightNorm here.
+    x = Activation('relu')(x)
+    x = SpatialDropout1D(rate=0.5)(x)
+    x = Conv1D(filters=3, kernel_size=4, dilation_rate=2, padding='causal')(x)
+    # x = BatchNormalization()(x)  # TODO should be WeightNorm here.
+    x = Activation('relu')(x)
+    x = SpatialDropout1D(rate=0.5)(x)
+    # 1x1 conv to match the shapes (channel dimension).
+    prev_x = Conv1D(3, 1, padding='same')(prev_x)
+    res_x = Add()([prev_x, x])
+
+    prev_x = res_x
+    x = Conv1D(filters=3, kernel_size=4, dilation_rate=4, padding='causal')(prev_x)
+    # x = BatchNormalization()(x)  # TODO should be WeightNorm here.
+    x = Activation('relu')(x)
+    x = SpatialDropout1D(rate=0.5)(x)
+    x = Conv1D(filters=3, kernel_size=4, dilation_rate=4, padding='causal')(x)
+    # x = BatchNormalization()(x)  # TODO should be WeightNorm here.
+    x = Activation('relu')(x)
+    x = SpatialDropout1D(rate=0.5)(x)
+    # 1x1 conv to match the shapes (channel dimension).
+    prev_x = Conv1D(3, 1, padding='same')(prev_x)
+    res_x = Add()([prev_x, x])
+
+    prev_x = res_x
+    x = Conv1D(filters=3, kernel_size=4, dilation_rate=8, padding='causal')(prev_x)
+    # x = BatchNormalization()(x)  # TODO should be WeightNorm here.
+    x = Activation('relu')(x)
+    x = SpatialDropout1D(rate=0.5)(x)
+    x = Conv1D(filters=3, kernel_size=4, dilation_rate=8, padding='causal')(x)
+    # x = BatchNormalization()(x)  # TODO should be WeightNorm here.
+    x = Activation('relu')(x)
+    x = SpatialDropout1D(rate=0.5)(x)
+    # 1x1 conv to match the shapes (channel dimension).
+    prev_x = Conv1D(3, 1, padding='same')(prev_x)
+    res_x = Add()([prev_x, x])
+
+    user_em = Flatten()(res_x)
+    user_em = Dense(MAX_MAXWIND_SEQ_LEN, activation='relu')(user_em)
+    user_em = Dense(60, activation='relu')(user_em)
+    user_em = Dense(32, activation='relu')(user_em)
+
+    # user_em8 = Embedding(input_dim=190, output_dim=8, input_length=MAX_MAXWIND_SEQ_LEN, mask_zero=True)(user_input)
+    # user_em8 = GRU(8)(user_em8)
+    # user_em16 = Embedding(input_dim=190, output_dim=16, input_length=MAX_MAXWIND_SEQ_LEN, mask_zero=True)(user_input)
+    # user_em16 = GRU(16)(user_em16)
+    # user_em32 = Embedding(input_dim=190, output_dim=32, input_length=MAX_MAXWIND_SEQ_LEN, mask_zero=True)(user_input)
+    # user_em32 = LSTM(1)(user_em32)
+    # user_em64 = Embedding(input_dim=190, output_dim=64, input_length=MAX_MAXWIND_SEQ_LEN, mask_zero=True)(user_input)
+    # user_em64 = LSTM(1)(user_em64)
     item_input = Input(shape=(1,), dtype='int32', name='item_input')
-    item_em8 = Embedding(input_dim=190, output_dim=8,  input_length=1)(item_input)
-    item_em8 = Flatten()(item_em8)
-    item_em16 = Embedding(input_dim=190, output_dim=16, input_length=1)(item_input)
-    item_em16 = Flatten()(item_em16)
+    # item_em8 = Embedding(input_dim=190, output_dim=8, input_length=1)(item_input)
+    # item_em8 = Flatten()(item_em8)
+    # item_em16 = Embedding(input_dim=190, output_dim=16, input_length=1)(item_input)
+    # item_em16 = Flatten()(item_em16)
     item_em32 = Embedding(input_dim=190, output_dim=32, input_length=1)(item_input)
     item_em32 = Flatten()(item_em32)
-    item_em64 = Embedding(input_dim=190, output_dim=64, input_length=1)(item_input)
-    item_em64 = Flatten()(item_em64)
+    # item_em64 = Embedding(input_dim=190, output_dim=64, input_length=1)(item_input)
+    # item_em64 = Flatten()(item_em64)
 
-    user_high = Dense(32, activation='relu')(user_em64)
-    item_high = Dense(32, activation='relu')(item_em64)
+    user_high = Dense(16, activation='relu')(user_em)
+    user_feature = Concatenate()([user_em,user_high])
+    item_high = Dense(16, activation='relu')(item_em32)
+    item_feature = Concatenate()([item_em32,item_high])
 
-    add = Add()([user_high, item_high])
-    mul = Multiply()([user_high, item_high])
-    concat = Concatenate()([user_high, item_high])
-    deep = Dense(32, activation='relu')(concat)
+    add = Add()([user_feature, item_feature])
+    mul = Multiply()([user_feature, item_feature])
+    concat = Concatenate()([user_feature, item_feature])
+    deep = Dense(48, activation='relu')(concat)
 
     ncf = Concatenate()([add, mul, concat, deep])
-    main_output = Dense(1, activation='sigmoid', name='finalDense')(ncf)
+    x = Dense(120, activation='relu')(ncf)
+    x = Dense(60, activation='relu')(x)
+    x = Dense(30, activation='relu')(x)
+    x = Dense(15, activation='relu')(x)
+    x = Dense(8, activation='relu')(x)
+    main_output = Dense(1, activation='sigmoid', name='finalDense')(x)
 
     model = Model(inputs=[user_input, item_input], outputs=main_output)
     model.compile(loss='mean_squared_error', optimizer='adam')  # binary_crossentropy
     return model
 
+
 model = create_model()
-model.fit([user_train, item_train], rate_train, batch_size=1024, epochs=100, validation_split=0.1, verbose=2)
+model.fit([user_train_lstm, item_train], rate_train, batch_size=512, epochs=EPOCHS, validation_split=0.1, verbose=2)
 
 print('calculate rmse-------------------------------------------------------------------------------------------------')
 
 # make predictions
-testPredict = model.predict([user_test, item_test])
+testPredict = model.predict([user_test_lstm, item_test])
 testPredict = np.reshape(testPredict,(testPredict.shape[0]))
 print(testPredict)
 
