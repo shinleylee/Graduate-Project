@@ -22,7 +22,7 @@ EMBEDDING_DIM = -1
 LOSS_FUNCTION = 'mean_squared_error'
 OPTIMIZER = 'adam'
 BATCH_SIZE = 512
-EPOCHS = 100
+EPOCHS = 20
 
 
 # read dataset to dataframe

@@ -4,7 +4,7 @@ import math
 import matplotlib.pyplot as plt
 import tensorflow as tf
 import keras as K
-from keras.layers import Input, Masking, Embedding, Flatten, Dense, LSTM, Concatenate, Multiply, Add, Permute, Reshape, Bidirectional, Conv1D, Activation, SpatialDropout1D, GRU
+from keras.layers import Input, Masking, Embedding, Flatten, Dense, LSTM, Concatenate, Multiply, Add, Permute, Reshape, Bidirectional, Conv1D, Activation, SpatialDropout1D, GRU, Dropout
 from keras.utils import to_categorical
 from keras.models import Sequential, Model
 from keras import losses
@@ -263,10 +263,25 @@ def create_model():
     prev_x = Conv1D(3, 1, padding='same')(prev_x)
     res_x = Add()([prev_x, x])
 
+    prev_x = res_x
+    x = Conv1D(filters=3, kernel_size=4, dilation_rate=16, padding='causal')(prev_x)
+    # x = BatchNormalization()(x)  # TODO should be WeightNorm here.
+    x = Activation('relu')(x)
+    x = SpatialDropout1D(rate=0.5)(x)
+    x = Conv1D(filters=3, kernel_size=4, dilation_rate=16, padding='causal')(x)
+    # x = BatchNormalization()(x)  # TODO should be WeightNorm here.
+    x = Activation('relu')(x)
+    x = SpatialDropout1D(rate=0.5)(x)
+    # 1x1 conv to match the shapes (channel dimension).
+    prev_x = Conv1D(3, 1, padding='same')(prev_x)
+    res_x = Add()([prev_x, x])
+
     user_em = Flatten()(res_x)
     user_em = Dense(MAX_MAXWIND_SEQ_LEN, activation='relu')(user_em)
     user_em = Dense(60, activation='relu')(user_em)
-    user_em = Dense(32, activation='relu')(user_em)
+    user_em = Dense(30, activation='relu')(user_em)
+    user_em = Dense(15, activation='relu')(user_em)
+    user_em = Dense(8, activation='relu')(user_em)
 
     # user_em8 = Embedding(input_dim=190, output_dim=8, input_length=MAX_MAXWIND_SEQ_LEN, mask_zero=True)(user_input)
     # user_em8 = GRU(8)(user_em8)
@@ -277,35 +292,33 @@ def create_model():
     # user_em64 = Embedding(input_dim=190, output_dim=64, input_length=MAX_MAXWIND_SEQ_LEN, mask_zero=True)(user_input)
     # user_em64 = LSTM(1)(user_em64)
     item_input = Input(shape=(1,), dtype='int32', name='item_input')
-    # item_em8 = Embedding(input_dim=190, output_dim=8, input_length=1)(item_input)
-    # item_em8 = Flatten()(item_em8)
+    item_em8 = Embedding(input_dim=190, output_dim=8, input_length=1)(item_input)
+    item_em8 = Flatten()(item_em8)
     # item_em16 = Embedding(input_dim=190, output_dim=16, input_length=1)(item_input)
     # item_em16 = Flatten()(item_em16)
-    item_em32 = Embedding(input_dim=190, output_dim=32, input_length=1)(item_input)
-    item_em32 = Flatten()(item_em32)
+    # item_em32 = Embedding(input_dim=190, output_dim=32, input_length=1)(item_input)
+    # item_em32 = Flatten()(item_em32)
     # item_em64 = Embedding(input_dim=190, output_dim=64, input_length=1)(item_input)
     # item_em64 = Flatten()(item_em64)
 
-    user_high = Dense(16, activation='relu')(user_em)
+    user_high = Dense(4, activation='relu')(user_em)
     user_feature = Concatenate()([user_em,user_high])
-    item_high = Dense(16, activation='relu')(item_em32)
-    item_feature = Concatenate()([item_em32,item_high])
+    item_high = Dense(4, activation='relu')(item_em8)
+    item_feature = Concatenate()([item_em8,item_high])
 
     add = Add()([user_feature, item_feature])
     mul = Multiply()([user_feature, item_feature])
     concat = Concatenate()([user_feature, item_feature])
-    deep = Dense(48, activation='relu')(concat)
+    deep = Dense(8, activation='relu')(concat)
 
     ncf = Concatenate()([add, mul, concat, deep])
-    x = Dense(120, activation='relu')(ncf)
-    x = Dense(60, activation='relu')(x)
-    x = Dense(30, activation='relu')(x)
+    x = Dense(30, activation='relu')(ncf)
     x = Dense(15, activation='relu')(x)
     x = Dense(8, activation='relu')(x)
     main_output = Dense(1, activation='sigmoid', name='finalDense')(x)
 
     model = Model(inputs=[user_input, item_input], outputs=main_output)
-    model.compile(loss='mean_squared_error', optimizer='adam')  # binary_crossentropy
+    model.compile(loss='binary_crossentropy', optimizer='adam')  # binary_crossentropy # mean_squared_error
     return model
 
 

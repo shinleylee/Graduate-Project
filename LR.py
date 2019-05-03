@@ -14,11 +14,8 @@ from sklearn import linear_model
 DATA_PATH = './dataset/'
 TRAIN_FILE = 'train.csv'
 TEST_FILE = 'test.csv'
-FIX_LEN = 19
-DRAW_CURVES = True
-TRAIN_LEN = 4
 MAX_MAXWIND_SEQ_LEN = -1
-EMBEDDING_DIM = 32
+
 
 # read dataset to dataframe
 print('Loading data...')
@@ -231,6 +228,7 @@ for i in range(0,n):
 score = np.sqrt(score/n)
 print('Calculate ',n,' sequences.')
 print('RMSE=',score)
+exit()
 
 coef = lr.coef_
 print('LR coef:')

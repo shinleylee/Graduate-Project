@@ -269,7 +269,7 @@ def create_model():
     else:
         masked = Embedding(input_dim=int(max_maxWind), output_dim=EMBEDDING_DIM, input_length=MAX_MAXWIND_SEQ_LEN, mask_zero=True)(main_input)
     # rnn = Bidirectional(LSTM(1))(masked)
-    main_output = GRU(1)(masked)
+    main_output = SimpleRNN(1)(masked)
 
     # att = Dense(MAX_MAXWIND_SEQ_LEN, activation='softmax', name='this_dense')(lstm)
     # a_probs = Multiply()([lstm, att])
@@ -318,10 +318,11 @@ y_pred = y_pred.tolist()
 y_test = y_test * max_maxWind
 y_test = y_test.tolist()
 print('Prediction:')
-print(y_pred)
+print([round(i) for i in y_pred])
 print('Ground Truth:')
-print(y_test)
+print([round(i) for i in y_test])
 
+assert len(y_test)==len(y_pred)
 testScore = (mean_squared_error(y_true=y_test, y_pred=y_pred)) ** 0.5
 # testScore = testScore * max_maxWind
 print('Test Score:')
