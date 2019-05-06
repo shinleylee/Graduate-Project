@@ -18,6 +18,25 @@ TRAIN_FILE = 'train.csv'
 TEST_FILE = 'test.csv'
 MAX_MAXWIND_SEQ_LEN = -1
 EPOCHS = 20
+DROPOUT_RATE = 0.8
+
+import time
+timestamp = time.strftime('%H%M%S',time.localtime(time.time()))
+import sys
+class Logger(object):
+    def __init__(self, fileN="Default.log"):
+        self.terminal = sys.stdout
+        self.log = open(fileN, "a")
+
+    def write(self, message):
+        self.terminal.write(message)
+        self.log.write(message)
+
+    def flush(self):
+        pass
+
+save_path = 'D:\\NCFTCN-32-'+timestamp+'.txt'
+sys.stdout = Logger(save_path)  # 保存到D盘
 
 # read dataset to dataframe
 print('Loading data...')
@@ -215,11 +234,11 @@ def create_model():
     x = Conv1D(filters=3, kernel_size=4, dilation_rate=1, padding='causal')(prev_x)
     # x = BatchNormalization()(x)  # TODO should be WeightNorm here.
     x = Activation('relu')(x)
-    x = SpatialDropout1D(rate=0.5)(x)
+    x = SpatialDropout1D(rate=DROPOUT_RATE)(x)
     x = Conv1D(filters=3, kernel_size=4, dilation_rate=1, padding='causal')(x)
     # x = BatchNormalization()(x)  # TODO should be WeightNorm here.
     x = Activation('relu')(x)
-    x = SpatialDropout1D(rate=0.5)(x)
+    x = SpatialDropout1D(rate=DROPOUT_RATE)(x)
     # 1x1 conv to match the shapes (channel dimension).
     prev_x = Conv1D(3, 1, padding='same')(prev_x)
     res_x = Add()([prev_x, x])
@@ -228,11 +247,11 @@ def create_model():
     x = Conv1D(filters=3, kernel_size=4, dilation_rate=2, padding='causal')(prev_x)
     # x = BatchNormalization()(x)  # TODO should be WeightNorm here.
     x = Activation('relu')(x)
-    x = SpatialDropout1D(rate=0.5)(x)
+    x = SpatialDropout1D(rate=DROPOUT_RATE)(x)
     x = Conv1D(filters=3, kernel_size=4, dilation_rate=2, padding='causal')(x)
     # x = BatchNormalization()(x)  # TODO should be WeightNorm here.
     x = Activation('relu')(x)
-    x = SpatialDropout1D(rate=0.5)(x)
+    x = SpatialDropout1D(rate=DROPOUT_RATE)(x)
     # 1x1 conv to match the shapes (channel dimension).
     prev_x = Conv1D(3, 1, padding='same')(prev_x)
     res_x = Add()([prev_x, x])
@@ -241,11 +260,11 @@ def create_model():
     x = Conv1D(filters=3, kernel_size=4, dilation_rate=4, padding='causal')(prev_x)
     # x = BatchNormalization()(x)  # TODO should be WeightNorm here.
     x = Activation('relu')(x)
-    x = SpatialDropout1D(rate=0.5)(x)
+    x = SpatialDropout1D(rate=DROPOUT_RATE)(x)
     x = Conv1D(filters=3, kernel_size=4, dilation_rate=4, padding='causal')(x)
     # x = BatchNormalization()(x)  # TODO should be WeightNorm here.
     x = Activation('relu')(x)
-    x = SpatialDropout1D(rate=0.5)(x)
+    x = SpatialDropout1D(rate=DROPOUT_RATE)(x)
     # 1x1 conv to match the shapes (channel dimension).
     prev_x = Conv1D(3, 1, padding='same')(prev_x)
     res_x = Add()([prev_x, x])
@@ -254,34 +273,34 @@ def create_model():
     x = Conv1D(filters=3, kernel_size=4, dilation_rate=8, padding='causal')(prev_x)
     # x = BatchNormalization()(x)  # TODO should be WeightNorm here.
     x = Activation('relu')(x)
-    x = SpatialDropout1D(rate=0.5)(x)
+    x = SpatialDropout1D(rate=DROPOUT_RATE)(x)
     x = Conv1D(filters=3, kernel_size=4, dilation_rate=8, padding='causal')(x)
     # x = BatchNormalization()(x)  # TODO should be WeightNorm here.
     x = Activation('relu')(x)
-    x = SpatialDropout1D(rate=0.5)(x)
+    x = SpatialDropout1D(rate=DROPOUT_RATE)(x)
     # 1x1 conv to match the shapes (channel dimension).
     prev_x = Conv1D(3, 1, padding='same')(prev_x)
     res_x = Add()([prev_x, x])
 
-    prev_x = res_x
-    x = Conv1D(filters=3, kernel_size=4, dilation_rate=16, padding='causal')(prev_x)
-    # x = BatchNormalization()(x)  # TODO should be WeightNorm here.
-    x = Activation('relu')(x)
-    x = SpatialDropout1D(rate=0.5)(x)
-    x = Conv1D(filters=3, kernel_size=4, dilation_rate=16, padding='causal')(x)
-    # x = BatchNormalization()(x)  # TODO should be WeightNorm here.
-    x = Activation('relu')(x)
-    x = SpatialDropout1D(rate=0.5)(x)
-    # 1x1 conv to match the shapes (channel dimension).
-    prev_x = Conv1D(3, 1, padding='same')(prev_x)
-    res_x = Add()([prev_x, x])
+    # prev_x = res_x
+    # x = Conv1D(filters=3, kernel_size=4, dilation_rate=16, padding='causal')(prev_x)
+    # # x = BatchNormalization()(x)  # TODO should be WeightNorm here.
+    # x = Activation('relu')(x)
+    # x = SpatialDropout1D(rate=DROPOUT_RATE)(x)
+    # x = Conv1D(filters=3, kernel_size=4, dilation_rate=16, padding='causal')(x)
+    # # x = BatchNormalization()(x)  # TODO should be WeightNorm here.
+    # x = Activation('relu')(x)
+    # x = SpatialDropout1D(rate=DROPOUT_RATE)(x)
+    # # 1x1 conv to match the shapes (channel dimension).
+    # prev_x = Conv1D(3, 1, padding='same')(prev_x)
+    # res_x = Add()([prev_x, x])
 
     user_em = Flatten()(res_x)
     user_em = Dense(MAX_MAXWIND_SEQ_LEN, activation='relu')(user_em)
     user_em = Dense(60, activation='relu')(user_em)
-    user_em = Dense(30, activation='relu')(user_em)
-    user_em = Dense(15, activation='relu')(user_em)
-    user_em = Dense(8, activation='relu')(user_em)
+    user_em = Dense(32, activation='relu')(user_em)
+    # user_em = Dense(16, activation='relu')(user_em)
+    # user_em = Dense(8, activation='relu')(user_em)
 
     # user_em8 = Embedding(input_dim=190, output_dim=8, input_length=MAX_MAXWIND_SEQ_LEN, mask_zero=True)(user_input)
     # user_em8 = GRU(8)(user_em8)
@@ -292,27 +311,29 @@ def create_model():
     # user_em64 = Embedding(input_dim=190, output_dim=64, input_length=MAX_MAXWIND_SEQ_LEN, mask_zero=True)(user_input)
     # user_em64 = LSTM(1)(user_em64)
     item_input = Input(shape=(1,), dtype='int32', name='item_input')
-    item_em8 = Embedding(input_dim=190, output_dim=8, input_length=1)(item_input)
-    item_em8 = Flatten()(item_em8)
-    # item_em16 = Embedding(input_dim=190, output_dim=16, input_length=1)(item_input)
-    # item_em16 = Flatten()(item_em16)
-    # item_em32 = Embedding(input_dim=190, output_dim=32, input_length=1)(item_input)
-    # item_em32 = Flatten()(item_em32)
-    # item_em64 = Embedding(input_dim=190, output_dim=64, input_length=1)(item_input)
-    # item_em64 = Flatten()(item_em64)
+    # item_em = Embedding(input_dim=190, output_dim=8, input_length=1)(item_input)
+    # item_em = Flatten()(item_em)
+    # item_em = Embedding(input_dim=190, output_dim=16, input_length=1)(item_input)
+    # item_em = Flatten()(item_em)
+    item_em = Embedding(input_dim=190, output_dim=32, input_length=1)(item_input)
+    item_em = Flatten()(item_em)
+    # item_em = Embedding(input_dim=190, output_dim=64, input_length=1)(item_input)
+    # item_em = Flatten()(item_em)
 
-    user_high = Dense(4, activation='relu')(user_em)
+    user_high = Dense(16, activation='relu')(user_em)
     user_feature = Concatenate()([user_em,user_high])
-    item_high = Dense(4, activation='relu')(item_em8)
-    item_feature = Concatenate()([item_em8,item_high])
+    item_high = Dense(16, activation='relu')(item_em)
+    item_feature = Concatenate()([item_em,item_high])
 
     add = Add()([user_feature, item_feature])
     mul = Multiply()([user_feature, item_feature])
     concat = Concatenate()([user_feature, item_feature])
-    deep = Dense(8, activation='relu')(concat)
+    deep = Dense(48, activation='relu')(concat)
 
     ncf = Concatenate()([add, mul, concat, deep])
-    x = Dense(30, activation='relu')(ncf)
+    x = Dense(120, activation='relu')(ncf)
+    x = Dense(60, activation='relu')(x)
+    x = Dense(30, activation='relu')(x)
     x = Dense(15, activation='relu')(x)
     x = Dense(8, activation='relu')(x)
     main_output = Dense(1, activation='sigmoid', name='finalDense')(x)
@@ -348,4 +369,5 @@ print(y_test.tolist())
 print(y_pred)
 
 mse = mean_squared_error(y_test,y_pred)
-print('rmse=',mse**0.5)
+rmse = mse**0.5
+print('rmse=',rmse)
