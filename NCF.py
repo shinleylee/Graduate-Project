@@ -19,6 +19,8 @@ TEST_FILE = 'test.csv'
 MAX_MAXWIND_SEQ_LEN = -1
 EPOCHS = 20
 DROPOUT_RATE = 0.8
+MODEL_PATH = './demo/'
+MODEL_NAME = 'NCF(TCN)32_'+str(EPOCHS)+'.h5'
 
 import time
 timestamp = time.strftime('%H%M%S',time.localtime(time.time()))
@@ -228,82 +230,80 @@ item_test = np.array(item_test, dtype='int32')
 
 def create_model():
     #输入数据的shape为(n_samples, timestamps, features)
-    user_input = Input(shape=(MAX_MAXWIND_SEQ_LEN,), name='user_input')
+    user_input = Input(shape=(MAX_MAXWIND_SEQ_LEN,1), name='user_input')
 
-    # prev_x = user_input
-    # x = Conv1D(filters=3, kernel_size=4, dilation_rate=1, padding='causal')(prev_x)
-    # # x = BatchNormalization()(x)  # TODO should be WeightNorm here.
-    # x = Activation('relu')(x)
-    # x = SpatialDropout1D(rate=DROPOUT_RATE)(x)
-    # x = Conv1D(filters=3, kernel_size=4, dilation_rate=1, padding='causal')(x)
-    # # x = BatchNormalization()(x)  # TODO should be WeightNorm here.
-    # x = Activation('relu')(x)
-    # x = SpatialDropout1D(rate=DROPOUT_RATE)(x)
-    # # 1x1 conv to match the shapes (channel dimension).
-    # prev_x = Conv1D(3, 1, padding='same')(prev_x)
-    # res_x = Add()([prev_x, x])
-    #
-    # prev_x = res_x
-    # x = Conv1D(filters=3, kernel_size=4, dilation_rate=2, padding='causal')(prev_x)
-    # # x = BatchNormalization()(x)  # TODO should be WeightNorm here.
-    # x = Activation('relu')(x)
-    # x = SpatialDropout1D(rate=DROPOUT_RATE)(x)
-    # x = Conv1D(filters=3, kernel_size=4, dilation_rate=2, padding='causal')(x)
-    # # x = BatchNormalization()(x)  # TODO should be WeightNorm here.
-    # x = Activation('relu')(x)
-    # x = SpatialDropout1D(rate=DROPOUT_RATE)(x)
-    # # 1x1 conv to match the shapes (channel dimension).
-    # prev_x = Conv1D(3, 1, padding='same')(prev_x)
-    # res_x = Add()([prev_x, x])
-    #
-    # prev_x = res_x
-    # x = Conv1D(filters=3, kernel_size=4, dilation_rate=4, padding='causal')(prev_x)
-    # # x = BatchNormalization()(x)  # TODO should be WeightNorm here.
-    # x = Activation('relu')(x)
-    # x = SpatialDropout1D(rate=DROPOUT_RATE)(x)
-    # x = Conv1D(filters=3, kernel_size=4, dilation_rate=4, padding='causal')(x)
-    # # x = BatchNormalization()(x)  # TODO should be WeightNorm here.
-    # x = Activation('relu')(x)
-    # x = SpatialDropout1D(rate=DROPOUT_RATE)(x)
-    # # 1x1 conv to match the shapes (channel dimension).
-    # prev_x = Conv1D(3, 1, padding='same')(prev_x)
-    # res_x = Add()([prev_x, x])
-    #
-    # prev_x = res_x
-    # x = Conv1D(filters=3, kernel_size=4, dilation_rate=8, padding='causal')(prev_x)
-    # # x = BatchNormalization()(x)  # TODO should be WeightNorm here.
-    # x = Activation('relu')(x)
-    # x = SpatialDropout1D(rate=DROPOUT_RATE)(x)
-    # x = Conv1D(filters=3, kernel_size=4, dilation_rate=8, padding='causal')(x)
-    # # x = BatchNormalization()(x)  # TODO should be WeightNorm here.
-    # x = Activation('relu')(x)
-    # x = SpatialDropout1D(rate=DROPOUT_RATE)(x)
-    # # 1x1 conv to match the shapes (channel dimension).
-    # prev_x = Conv1D(3, 1, padding='same')(prev_x)
-    # res_x = Add()([prev_x, x])
+    prev_x = user_input
+    x = Conv1D(filters=3, kernel_size=4, dilation_rate=1, padding='causal')(prev_x)
+    # x = BatchNormalization()(x)  # TODO should be WeightNorm here.
+    x = Activation('relu')(x)
+    x = SpatialDropout1D(rate=DROPOUT_RATE)(x)
+    x = Conv1D(filters=3, kernel_size=4, dilation_rate=1, padding='causal')(x)
+    # x = BatchNormalization()(x)  # TODO should be WeightNorm here.
+    x = Activation('relu')(x)
+    x = SpatialDropout1D(rate=DROPOUT_RATE)(x)
+    # 1x1 conv to match the shapes (channel dimension).
+    prev_x = Conv1D(3, 1, padding='same')(prev_x)
+    res_x = Add()([prev_x, x])
 
-    # prev_x = res_x
-    # x = Conv1D(filters=3, kernel_size=4, dilation_rate=16, padding='causal')(prev_x)
-    # # x = BatchNormalization()(x)  # TODO should be WeightNorm here.
-    # x = Activation('relu')(x)
-    # x = SpatialDropout1D(rate=DROPOUT_RATE)(x)
-    # x = Conv1D(filters=3, kernel_size=4, dilation_rate=16, padding='causal')(x)
-    # # x = BatchNormalization()(x)  # TODO should be WeightNorm here.
-    # x = Activation('relu')(x)
-    # x = SpatialDropout1D(rate=DROPOUT_RATE)(x)
-    # # 1x1 conv to match the shapes (channel dimension).
-    # prev_x = Conv1D(3, 1, padding='same')(prev_x)
-    # res_x = Add()([prev_x, x])
+    prev_x = res_x
+    x = Conv1D(filters=3, kernel_size=4, dilation_rate=2, padding='causal')(prev_x)
+    # x = BatchNormalization()(x)  # TODO should be WeightNorm here.
+    x = Activation('relu')(x)
+    x = SpatialDropout1D(rate=DROPOUT_RATE)(x)
+    x = Conv1D(filters=3, kernel_size=4, dilation_rate=2, padding='causal')(x)
+    # x = BatchNormalization()(x)  # TODO should be WeightNorm here.
+    x = Activation('relu')(x)
+    x = SpatialDropout1D(rate=DROPOUT_RATE)(x)
+    # 1x1 conv to match the shapes (channel dimension).
+    prev_x = Conv1D(3, 1, padding='same')(prev_x)
+    res_x = Add()([prev_x, x])
 
-    # user_em = Flatten()(res_x)
-    # user_em = Dense(MAX_MAXWIND_SEQ_LEN, activation='relu')(user_em)
-    # user_em = Dense(60, activation='relu')(user_em)
-    # user_em = Dense(32, activation='relu')(user_em)
-    # user_em = Dense(16, activation='relu')(user_em)
-    # user_em = Dense(8, activation='relu')(user_em)
+    prev_x = res_x
+    x = Conv1D(filters=3, kernel_size=4, dilation_rate=4, padding='causal')(prev_x)
+    # x = BatchNormalization()(x)  # TODO should be WeightNorm here.
+    x = Activation('relu')(x)
+    x = SpatialDropout1D(rate=DROPOUT_RATE)(x)
+    x = Conv1D(filters=3, kernel_size=4, dilation_rate=4, padding='causal')(x)
+    # x = BatchNormalization()(x)  # TODO should be WeightNorm here.
+    x = Activation('relu')(x)
+    x = SpatialDropout1D(rate=DROPOUT_RATE)(x)
+    # 1x1 conv to match the shapes (channel dimension).
+    prev_x = Conv1D(3, 1, padding='same')(prev_x)
+    res_x = Add()([prev_x, x])
 
-    user_em = Dense(60, activation='relu')(user_input)
+    prev_x = res_x
+    x = Conv1D(filters=3, kernel_size=4, dilation_rate=8, padding='causal')(prev_x)
+    # x = BatchNormalization()(x)  # TODO should be WeightNorm here.
+    x = Activation('relu')(x)
+    x = SpatialDropout1D(rate=DROPOUT_RATE)(x)
+    x = Conv1D(filters=3, kernel_size=4, dilation_rate=8, padding='causal')(x)
+    # x = BatchNormalization()(x)  # TODO should be WeightNorm here.
+    x = Activation('relu')(x)
+    x = SpatialDropout1D(rate=DROPOUT_RATE)(x)
+    # 1x1 conv to match the shapes (channel dimension).
+    prev_x = Conv1D(3, 1, padding='same')(prev_x)
+    res_x = Add()([prev_x, x])
+
+    prev_x = res_x
+    x = Conv1D(filters=3, kernel_size=4, dilation_rate=16, padding='causal')(prev_x)
+    # x = BatchNormalization()(x)  # TODO should be WeightNorm here.
+    x = Activation('relu')(x)
+    x = SpatialDropout1D(rate=DROPOUT_RATE)(x)
+    x = Conv1D(filters=3, kernel_size=4, dilation_rate=16, padding='causal')(x)
+    # x = BatchNormalization()(x)  # TODO should be WeightNorm here.
+    x = Activation('relu')(x)
+    x = SpatialDropout1D(rate=DROPOUT_RATE)(x)
+    # 1x1 conv to match the shapes (channel dimension).
+    prev_x = Conv1D(3, 1, padding='same')(prev_x)
+    res_x = Add()([prev_x, x])
+
+    user_em = Flatten()(res_x)
+    user_em = Dense(MAX_MAXWIND_SEQ_LEN, activation='relu')(user_em)
+    user_em = Dense(60, activation='relu')(user_em)
     user_em = Dense(32, activation='relu')(user_em)
+
+    # user_em = Dense(60, activation='relu')(user_input)
+    # user_em = Dense(32, activation='relu')(user_em)
 
     # user_em8 = Embedding(input_dim=190, output_dim=8, input_length=MAX_MAXWIND_SEQ_LEN, mask_zero=True)(user_input)
     # user_em8 = GRU(8)(user_em8)
@@ -347,12 +347,18 @@ def create_model():
 
 
 model = create_model()
-model.fit([user_train, item_train], rate_train, batch_size=512, epochs=EPOCHS, validation_split=0.1, verbose=2)
+model.fit([user_train_lstm, item_train], rate_train, batch_size=512, epochs=EPOCHS, validation_split=0.1, verbose=2)
+
+print('model save-----------------------------------------------------------------------------------------------------')
+
+print('Saving model...')
+model.save(MODEL_PATH+MODEL_NAME)
+print('model saved in '+ MODEL_PATH + MODEL_NAME)
 
 print('calculate rmse-------------------------------------------------------------------------------------------------')
 
 # make predictions
-testPredict = model.predict([user_test, item_test])
+testPredict = model.predict([user_test_lstm, item_test])
 testPredict = np.reshape(testPredict,(testPredict.shape[0]))
 print(testPredict)
 
