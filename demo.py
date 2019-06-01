@@ -14,14 +14,21 @@ from sklearn.metrics import mean_squared_error
 from keras import backend as Kbe
 from keras.models import load_model
 
-TYPHOON = 'EP012014'
-DATA_PATH = './demo/'
+#-------------------------------
+from sys import argv
+script, FILENAME = argv
+
+TYPHOON = FILENAME  # 'EP012014'
+#------------------------------
+DATA_PATH = 'D:/gp/Graduate-Project/demo/'
 TEST_FILE = TYPHOON+'.csv'
-MODEL_PATH = './demo/'
-MODEL_NAME = 'NCF(TCN)32_20.h5'
+MODEL_PATH = 'D:/gp/Graduate-Project/demo/'
+MODEL_NAME = 'NCF(TCN)32_100.h5'
 MAX_MAXWIND_SEQ_LEN = 120
 DROPOUT_RATE = 0.8
-IMG_SAVE_PATH = TYPHOON+'.png'
+IMG_SAVE_PATH = 'D:/xampp/htdocs/demo/typhoon_curves/'
+IMG_SAVE_NAME = TYPHOON + '.png'
+TXT_SAVE_NAME = TYPHOON + '.txt'
 
 # read dataset to dataframe
 print('Loading data...')
@@ -185,6 +192,27 @@ mse = mean_squared_error(y_test,y_pred)
 rmse = mse**0.5
 print('RMSE=',rmse)
 
+
+
+# txt
+len_txt = len(y_test)
+ave_txt = 0
+for i in y_test:
+    ave_txt+=float(i)
+ave_txt = round(ave_txt/len_txt,2)
+y_test_txt = ''
+for i in y_test:
+    y_test_txt+=str(i)
+    y_test_txt+=', '
+y_pred_txt = ''
+for i in y_pred:
+    y_pred_txt+=str(i)
+    y_pred_txt+=', '
+
+f = open(IMG_SAVE_PATH+TXT_SAVE_NAME,'w')
+f.write('台风持续'+str(len_txt/4)+'天（'+str(len_txt)+'个记录点）'+'\n风力均值：'+str(ave_txt)+'\n真实值：'+y_test_txt + '\n预测值：'+y_pred_txt + '\n误差RMSE：'+str(round(rmse,4)))
+f.close()
+
 # draw
 x, = plt.plot(y_pred, color='blue')
 y, = plt.plot(y_test, color='red')#linestyle="--"
@@ -196,10 +224,10 @@ z = plt.bar(x=x_ticks, height=z, color='gray')
 xaxis = y_test-y_test  # the x axis
 xaxis, = plt.plot(xaxis, color='black')
 
-plt.xlabel('time step')
+plt.xlabel('Time Steps')
 plt.ylabel('maxWind')
 plt.ylim(-50, 200)
 plt.legend([x,y,z],['Prediction','Ground Truth','Differences'])
-plt.title('Prediction and Ground Truth Curves')
-plt.savefig(MODEL_PATH+IMG_SAVE_PATH)
-plt.show()
+plt.title(TYPHOON)
+plt.savefig(IMG_SAVE_PATH+IMG_SAVE_NAME)
+# plt.show()
